@@ -15,9 +15,9 @@ Estimated Thermal Properties (Rule of Mixtures + Cermet Physics):
 """
 
 import numpy as np
-from process_model import MaterialProperties, run_process_simulation
-from laser import nd_yag_laser
-from motion import raster_path
+from .process_model import MaterialProperties, run_process_simulation
+from .laser import nd_yag_laser
+from .motion import raster_path
 
 # 1. Define the Ultimate Material
 ULTIMATE_MAT = MaterialProperties(

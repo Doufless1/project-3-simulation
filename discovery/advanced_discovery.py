@@ -26,7 +26,7 @@ from typing import List, Dict, Optional
 
 # Import real materials database (Materials Project)
 from materials_project_db import MaterialsProjectDB, get_offline_database
-from materials_db import ELEMENTS, Element
+from shared.materials_db import ELEMENTS, Element
 
 # ============================================================================
 # CONFIGURATION
