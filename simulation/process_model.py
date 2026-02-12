@@ -17,8 +17,8 @@ from dataclasses import dataclass, field
 from typing import Tuple, Optional, Dict, Any
 
 # Import from companion modules
-from motion import MotionPath
-from laser import LaserConfig, compute_spot_radius_array, gaussian_intensity
+from .motion import MotionPath
+from .laser import LaserConfig, compute_spot_radius_array, gaussian_intensity
 
 
 # =============================================================================

@@ -45,7 +45,8 @@ def main():
         # We pass the target score so it knows when to stop internally if it hits it
         try:
             # Using python explicitly
-            subprocess.run([sys.executable, SCRIPT_NAME, str(TARGET_SCORE)], check=True)
+            # Run as module from root
+            subprocess.run([sys.executable, "-m", "discovery.advanced_discovery", str(TARGET_SCORE)], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error running script: {e}")
             time.sleep(5)
