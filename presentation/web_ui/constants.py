@@ -78,81 +78,263 @@ PLOT_TEMPLATE = dict(
 )
 
 # ============================================================================
-# CSS Injection (App Index String)
+# CSS Injection (App Index String) — Full Mobile-First Responsive Design
 # ============================================================================
 
 APP_INDEX_STRING = '''<!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#0a0e1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     {%metas%}{%favicon%}{%css%}
     <title>{%title%}</title>
     <style>
-        /* Dash dropdown dark theme */
-        .Select-control { background: #1a2040 !important; border-color: rgba(100,140,255,0.15) !important; }
+        /* ================================================================
+           BASE RESET & GLOBAL
+           ================================================================ */
+        *, *::before, *::after { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+        body {
+            margin: 0; padding: 0;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ================================================================
+           DASH DROPDOWN — DARK THEME
+           ================================================================ */
+        .Select-control {
+            background: #1a2040 !important;
+            border-color: rgba(100,140,255,0.15) !important;
+            min-height: 44px !important;  /* Touch-friendly */
+        }
         .Select-value-label, .Select-placeholder { color: #c0d0f0 !important; }
-        .Select-menu-outer { background: #11182e !important; border-color: rgba(100,140,255,0.15) !important; }
-        .VirtualizedSelectOption { color: #c0d0f0 !important; background: #11182e !important; }
-        .VirtualizedSelectFocusedOption { background: rgba(67,97,238,0.25) !important; color: #e0e8ff !important; }
-        .Select-input > input { color: #c0d0f0 !important; }
+        .Select-menu-outer {
+            background: #11182e !important;
+            border-color: rgba(100,140,255,0.15) !important;
+            max-height: 300px !important;
+        }
+        .VirtualizedSelectOption {
+            color: #c0d0f0 !important;
+            background: #11182e !important;
+            min-height: 40px !important;  /* Touch target */
+            display: flex !important;
+            align-items: center !important;
+        }
+        .VirtualizedSelectFocusedOption {
+            background: rgba(67,97,238,0.25) !important;
+            color: #e0e8ff !important;
+        }
+        .Select-input > input { color: #c0d0f0 !important; font-size: 16px !important; }
         .Select-arrow { border-color: #506080 transparent transparent !important; }
         .is-open > .Select-control .Select-arrow { border-color: transparent transparent #506080 !important; }
-        .Select.is-focused > .Select-control { border-color: rgba(67,97,238,0.4) !important; box-shadow: 0 0 0 2px rgba(67,97,238,0.15) !important; }
+        .Select.is-focused > .Select-control {
+            border-color: rgba(67,97,238,0.4) !important;
+            box-shadow: 0 0 0 2px rgba(67,97,238,0.15) !important;
+        }
         .Select-clear { color: #506080 !important; }
         .Select-noresults { color: #607898 !important; background: #11182e !important; }
-        /* Disabled option (headers) */
         .VirtualizedSelectOption[aria-disabled="true"] {
             color: #4a6090 !important; font-weight: 700 !important; font-size: 10px !important;
             letter-spacing: 1px !important; padding-top: 10px !important;
         }
-        /* Scrollbar */
         .Select-menu-outer ::-webkit-scrollbar { width: 6px; }
         .Select-menu-outer ::-webkit-scrollbar-track { background: #0a1020; }
         .Select-menu-outer ::-webkit-scrollbar-thumb { background: #2a3560; border-radius: 3px; }
-        /* Modal dark theme */
-        .modal-content { background: #0d1529 !important; border: 1px solid rgba(100,140,255,0.1) !important; }
 
-        /* ---- Hamburger Button ---- */
+        /* ================================================================
+           MODAL — DARK THEME
+           ================================================================ */
+        .modal-content {
+            background: #0d1529 !important;
+            border: 1px solid rgba(100,140,255,0.1) !important;
+        }
+
+        /* ================================================================
+           SLIDER — TOUCH FRIENDLY
+           ================================================================ */
+        .rc-slider-handle {
+            width: 24px !important;
+            height: 24px !important;
+            margin-top: -10px !important;
+            border: 2px solid #4361ee !important;
+            background: #1a2040 !important;
+            box-shadow: 0 2px 8px rgba(67,97,238,0.4) !important;
+            opacity: 1 !important;
+        }
+        .rc-slider-handle:active, .rc-slider-handle:focus {
+            box-shadow: 0 0 0 5px rgba(67,97,238,0.25) !important;
+        }
+        .rc-slider-track { background: #4361ee !important; height: 6px !important; }
+        .rc-slider-rail { background: #1a2040 !important; height: 6px !important; }
+        .rc-slider-dot { border-color: #2a3560 !important; }
+        .rc-slider-mark-text { color: #506080 !important; font-size: 10px !important; }
+
+        /* ================================================================
+           TABS — SCROLLABLE ON MOBILE
+           ================================================================ */
+        .nav-tabs {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            border-bottom: 1px solid rgba(100,140,255,0.1) !important;
+        }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        .nav-tabs .nav-link {
+            white-space: nowrap !important;
+            min-height: 44px !important;  /* Touch target */
+            display: flex !important;
+            align-items: center !important;
+            padding: 8px 16px !important;
+            color: #607898 !important;
+            border: none !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.3px !important;
+            transition: all 0.2s ease !important;
+        }
+        .nav-tabs .nav-link:hover { color: #a0b8e0 !important; }
+        .nav-tabs .nav-link.active {
+            color: #64b5f6 !important;
+            background: rgba(20, 25, 45, 0.85) !important;
+            border-bottom: 2px solid #4361ee !important;
+        }
+
+        /* ================================================================
+           RADIO ITEMS — TOUCH FRIENDLY
+           ================================================================ */
+        .form-check { min-height: 40px; display: flex; align-items: center; }
+        .form-check-label {
+            color: #a0b0d0 !important;
+            font-size: 13px !important;
+            padding: 8px 4px !important;
+            cursor: pointer;
+        }
+        .form-check-input:checked { background-color: #4361ee !important; border-color: #4361ee !important; }
+
+        /* ================================================================
+           BUTTONS — TOUCH FRIENDLY
+           ================================================================ */
+        button { -webkit-tap-highlight-color: transparent; }
+        button:active { transform: scale(0.97); }
+
+        /* ================================================================
+           HAMBURGER BUTTON (Desktop: hidden)
+           ================================================================ */
         .hamburger-btn {
-            display: none;  /* Hidden on desktop */
+            display: none;
             background: rgba(67,97,238,0.2);
             border: 1px solid rgba(100,140,255,0.25);
             border-radius: 10px;
             color: #c0d0f0;
             font-size: 22px;
-            padding: 6px 12px;
+            padding: 8px 14px;
             cursor: pointer;
             transition: all 0.2s ease;
             line-height: 1;
+            min-width: 44px;
+            min-height: 44px;
         }
         .hamburger-btn:hover { background: rgba(67,97,238,0.4); }
 
-        /* ---- Responsive Mobile Layout ---- */
-        @media (max-width: 768px) {
-            .hamburger-btn { display: block !important; }
+        /* ================================================================
+           MOBILE CLOSE BUTTON (Desktop: hidden)
+           ================================================================ */
+        .mobile-close-btn {
+            display: none;
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 9001;
+            background: rgba(255,80,80,0.2);
+            border: 1px solid rgba(255,100,100,0.3);
+            border-radius: 10px;
+            color: #ff6b6b;
+            font-size: 20px;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            line-height: 1;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        .mobile-close-btn:hover { background: rgba(255,80,80,0.4); }
 
+        /* ================================================================
+           DESKTOP LAYOUT (>= 769px)
+           ================================================================ */
+        @media (min-width: 769px) {
+            .mobile-close-btn { display: none !important; }
+            .hamburger-btn { display: none !important; }
+            /* On desktop: panel is ALWAYS visible, overriding panel-hidden */
+            .sim-left-panel,
+            .sim-left-panel.panel-hidden,
+            .sim-left-panel.panel-visible {
+                display: block !important;
+                position: static !important;
+                transform: none !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                width: auto !important;
+                height: auto !important;
+                max-height: calc(100vh - 130px) !important;
+                z-index: auto !important;
+                background: transparent !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                padding: 0 !important;
+                padding-right: 8px !important;
+            }
+        }
+
+        /* ================================================================
+           MOBILE / TABLET (<= 768px)
+           ================================================================ */
+        @media (max-width: 768px) {
+            .hamburger-btn { display: flex !important; align-items: center; justify-content: center; }
+            .mobile-close-btn { display: flex !important; align-items: center; justify-content: center; }
+
+            /* Header compact */
+            .sim-header {
+                padding: 10px 14px !important;
+                flex-wrap: nowrap;
+                gap: 8px;
+            }
+            .sim-header h1 { font-size: 16px !important; letter-spacing: -0.3px !important; }
+            .sim-header p { display: none !important; }
+
+            /* Grid becomes single column */
             .sim-main-grid {
                 grid-template-columns: 1fr !important;
                 max-height: none !important;
                 overflow: visible !important;
-                padding: 12px !important;
-                gap: 12px !important;
+                padding: 10px !important;
+                gap: 10px !important;
             }
+
+            /* Left panel becomes full-screen overlay */
             .sim-left-panel {
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
                 width: 100vw !important;
                 height: 100vh !important;
+                height: 100dvh !important;  /* Dynamic viewport for mobile browsers */
                 max-height: 100vh !important;
+                max-height: 100dvh !important;
                 z-index: 9000 !important;
-                background: rgba(10, 14, 26, 0.97) !important;
-                backdrop-filter: blur(20px) !important;
-                padding: 20px !important;
-                padding-top: 70px !important;
+                background: rgba(10, 14, 26, 0.98) !important;
+                backdrop-filter: blur(24px) !important;
+                -webkit-backdrop-filter: blur(24px) !important;
+                padding: 16px !important;
+                padding-top: 60px !important;
                 overflow-y: auto !important;
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                            opacity 0.3s ease !important;
+                -webkit-overflow-scrolling: touch;
+                transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                            opacity 0.25s ease !important;
             }
             .sim-left-panel.panel-hidden {
                 transform: translateX(-100%) !important;
@@ -164,39 +346,113 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
                 opacity: 1 !important;
                 pointer-events: auto !important;
             }
-            /* Close button inside the mobile panel */
-            .mobile-close-btn {
-                position: fixed;
-                top: 16px;
-                right: 16px;
-                z-index: 9001;
-                background: rgba(255,80,80,0.2);
-                border: 1px solid rgba(255,100,100,0.3);
-                border-radius: 10px;
-                color: #ff6b6b;
-                font-size: 20px;
-                padding: 6px 14px;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                line-height: 1;
-            }
-            .mobile-close-btn:hover { background: rgba(255,80,80,0.4); }
 
+            /* Right panel (graph) — fills available space */
             .sim-right-panel {
-                max-height: 60vh !important;
-                min-height: 300px;
+                max-height: none !important;
+                min-height: 50vh !important;
+                height: calc(100vh - 70px) !important;
+                height: calc(100dvh - 70px) !important;
             }
-            .sim-header {
-                padding: 12px 16px !important;
-                flex-wrap: wrap;
-                gap: 8px;
+
+            /* Graph container fills right panel */
+            #viz-content {
+                flex: 1 !important;
+                min-height: 45vh !important;
             }
-            .sim-header h1 { font-size: 18px !important; }
+            .js-plotly-plot, .plotly, .plot-container {
+                height: 100% !important;
+            }
+
+            /* Cards breathe more on mobile */
+            .dash-graph { height: 100% !important; }
+
+            /* Tabs scroll horizontally */
+            .nav-tabs .nav-link {
+                padding: 10px 14px !important;
+                font-size: 11px !important;
+            }
+
+            /* Slider marks smaller */
+            .rc-slider-mark-text { font-size: 9px !important; }
+
+            /* Modal fullscreen on mobile */
+            .modal-dialog {
+                max-width: 100vw !important;
+                margin: 0 !important;
+                height: 100vh !important;
+                height: 100dvh !important;
+            }
+            .modal-content {
+                height: 100vh !important;
+                height: 100dvh !important;
+                border-radius: 0 !important;
+                overflow-y: auto !important;
+            }
+            .modal-body {
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+                padding: 16px !important;
+            }
+            .modal-header { padding: 12px 16px !important; }
+            .modal-footer { padding: 12px 16px !important; }
+
+            /* Status badge smaller */
+            #status-badge {
+                font-size: 10px !important;
+                padding: 4px 10px !important;
+            }
+
+            /* Loading overlay */
+            .dash-loading { z-index: 10000; }
         }
 
-        /* Desktop: hide mobile-only elements */
-        @media (min-width: 769px) {
-            .mobile-close-btn { display: none !important; }
+        /* ================================================================
+           SMALL PHONES (<= 400px)
+           ================================================================ */
+        @media (max-width: 400px) {
+            .sim-header h1 { font-size: 14px !important; }
+            .nav-tabs .nav-link {
+                padding: 8px 10px !important;
+                font-size: 10px !important;
+            }
+            .rc-slider-handle {
+                width: 28px !important;
+                height: 28px !important;
+                margin-top: -12px !important;
+            }
+        }
+
+        /* ================================================================
+           LANDSCAPE MOBILE
+           ================================================================ */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .sim-right-panel {
+                height: calc(100vh - 55px) !important;
+                height: calc(100dvh - 55px) !important;
+                min-height: 200px !important;
+            }
+            .sim-header { padding: 6px 14px !important; }
+            .sim-header h1 { font-size: 14px !important; }
+        }
+
+        /* ================================================================
+           PRINT — CLEAN OUTPUT
+           ================================================================ */
+        @media print {
+            .hamburger-btn, .mobile-close-btn, #run-btn { display: none !important; }
+            .sim-left-panel { display: block !important; position: static !important; }
+            body { background: white !important; }
+        }
+
+        /* ================================================================
+           ANIMATIONS — REDUCED MOTION ACCESSIBILITY
+           ================================================================ */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
