@@ -285,6 +285,7 @@ def get_layout():
                             "display": "flex",
                             "flexDirection": "column",
                             "maxHeight": "calc(100vh - 130px)",
+                            "minHeight": "350px",
                         },
                         children=[
                             dbc.Tabs(
@@ -292,11 +293,11 @@ def get_layout():
                                 active_tab="tab-3d",
                                 className="mb-0",
                                 children=[
-                                    dbc.Tab(label="3D Surface", tab_id="tab-3d"),
-                                    dbc.Tab(label="XZ Section", tab_id="tab-xz"),
-                                    dbc.Tab(label="YZ Section", tab_id="tab-yz"),
-                                    dbc.Tab(label="Fluence Map", tab_id="tab-fluence"),
-                                    dbc.Tab(label="Depth Profile", tab_id="tab-depth"),
+                                    dbc.Tab(label="3D", tab_id="tab-3d"),
+                                    dbc.Tab(label="XZ", tab_id="tab-xz"),
+                                    dbc.Tab(label="YZ", tab_id="tab-yz"),
+                                    dbc.Tab(label="Fluence", tab_id="tab-fluence"),
+                                    dbc.Tab(label="Depth", tab_id="tab-depth"),
                                 ],
                             ),
                             html.Div(
@@ -308,17 +309,20 @@ def get_layout():
                                     "borderTopLeftRadius": "0",
                                     "borderTopRightRadius": "0",
                                     "overflow": "hidden",
-                                    "padding": "8px",
+                                    "padding": "4px",
+                                    "minHeight": "300px",
                                 },
                                 children=[
                                     dcc.Graph(
                                         id="main-graph",
                                         figure=empty_3d_figure(),
-                                        style={"height": "100%"},
+                                        style={"height": "100%", "minHeight": "280px"},
+                                        responsive=True,
                                         config={
-                                            "displayModeBar": True,
+                                            "displayModeBar": "hover",
                                             "scrollZoom": True,
                                             "displaylogo": False,
+                                            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
                                         },
                                     ),
                                 ],
