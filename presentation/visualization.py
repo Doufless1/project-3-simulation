@@ -9,9 +9,12 @@ Generates:
 - Depth temperature profile
 """
 
+import logging
 import os
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def _get_pyplot():
@@ -37,7 +40,7 @@ def plot_fluence_map(result, output_path: str = "fluence_map.png") -> str:
 
     fluence = np.array(result.fluence_map)
     if fluence.ndim != 2 or fluence.size == 0:
-        print("[Visualization] No fluence data to plot.")
+        logger.info("No fluence data to plot.")
         return ""
 
     x = np.array(result.x_coords) * 1000  # Convert to mm
@@ -58,7 +61,7 @@ def plot_fluence_map(result, output_path: str = "fluence_map.png") -> str:
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
-    print(f"[Visualization] Fluence map saved to: {output_path}")
+    logger.info("Fluence map saved to: %s", output_path)
     return output_path
 
 
@@ -82,7 +85,7 @@ def plot_temperature_cross_section(
 
     t_field = np.array(result.temperature_field)
     if t_field.ndim != 3 or t_field.size == 0:
-        print("[Visualization] No 3D temperature data to plot.")
+        logger.info("No 3D temperature data to plot.")
         return ""
 
     x_coords = np.array(result.x_coords) * 1000  # mm
@@ -120,7 +123,7 @@ def plot_temperature_cross_section(
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
-    print(f"[Visualization] Cross-section saved to: {output_path}")
+    logger.info("Cross-section saved to: %s", output_path)
     return output_path
 
 
@@ -142,7 +145,7 @@ def plot_depth_profile(
 
     t_field = np.array(result.temperature_field)
     if t_field.ndim != 3 or t_field.size == 0:
-        print("[Visualization] No 3D data for depth profile.")
+        logger.info("No 3D data for depth profile.")
         return ""
 
     z_coords = np.array(result.z_coords) * 1e6  # Convert to µm
@@ -157,11 +160,6 @@ def plot_depth_profile(
 
     # Add melt and vaporization lines if relevant
     if result.melt_depth_m is not None:
-        t_melt = next(
-            (t for z_um, t in zip(z_coords, depth_profile)
-             if z_um >= result.melt_depth_m * 1e6),
-            None,
-        )
         ax.axhline(y=depth_profile[0] * 0.5, color="orange", linestyle="--",
                     alpha=0.7, label=f"Melt depth: {result.melt_depth_m*1e6:.0f} µm")
 
@@ -173,7 +171,7 @@ def plot_depth_profile(
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
-    print(f"[Visualization] Depth profile saved to: {output_path}")
+    logger.info("Depth profile saved to: %s", output_path)
     return output_path
 
 

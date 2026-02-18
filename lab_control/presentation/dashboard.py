@@ -16,11 +16,13 @@ STRIDE:
 import json
 import math
 import plotly.graph_objects as go
-from dash import Dash, html, dcc, Input, Output, State, callback_context
+import dash
+from dash import Dash, html, dcc, Input, Output, State, callback_context, no_update
 
 from lab_control.composition_root import create_lab_control, create_cost_calculator
 from lab_control.domain.value_objects import ScanRecipe
 from lab_control.domain.exceptions import LabControlError
+from lab_control.presentation.visualizations import build_3d_lab_figure
 
 # ── Composition Root: Wire dependencies ──────────────────────────────
 
@@ -46,7 +48,7 @@ COLORS = {
     "danger": "#ef4444",
     "warning": "#f59e0b",
     "text": "#e2e8f0",
-    "muted": "#64748b",
+    "muted": "#94a3b8",
     "accent": "#8b5cf6",
 }
 
@@ -142,6 +144,38 @@ def _indicator(label, value_id, color="text"):
 #                             LAYOUT
 # ══════════════════════════════════════════════════════════════════════
 
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            *:focus-visible {
+                outline: 2px solid #3b82f6 !important;
+                outline-offset: 2px !important;
+                border-radius: 4px;
+            }
+            button:focus-visible {
+                outline: 2px solid #3b82f6 !important;
+                outline-offset: 2px !important;
+                box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 app.layout = html.Div(
     style={
         "backgroundColor": COLORS["bg"],
@@ -172,7 +206,7 @@ app.layout = html.Div(
                 html.Span("Virtual Control Dashboard", style={"fontSize": "26px", "fontWeight": "300", "opacity": "0.8"})
             ], style={"display": "flex", "alignItems": "center", "gap": "12px"}),
             html.P(
-                "Clean Architecture · CIA Triad · STRIDE Threat Model",
+                "Laser Treatment Laboratory · Simulation & Control",
                 style={
                     "margin": "4px 0 0",
                     "color": COLORS["muted"],
@@ -232,6 +266,12 @@ app.layout = html.Div(
         # ── Hidden interval for auto-refresh ─
         dcc.Interval(id="refresh-interval", interval=2000, n_intervals=0),
 
+        # ── Fire confirmation dialog ─
+        dcc.ConfirmDialog(
+            id="confirm-fire",
+            message="⚠️ FIRE LASER?\n\nThis will activate the laser at the set power level.\nEnsure all safety interlocks are engaged and the chamber is clear.\n\nProceed?",
+        ),
+
         # ── Status bar ───────────────────────
         html.Div(
             id="status-bar",
@@ -288,34 +328,54 @@ def _build_xy_tab():
                         style={"backgroundColor": COLORS["bg"], "color": COLORS["text"],
                                "borderRadius": "6px", "marginBottom": "12px"},
                     ),
-                    html.Div("SPEED (mm/s)", style=LABEL_STYLE),
+                    html.Div([
+                        html.Span("SPEED (mm/s)", style=LABEL_STYLE),
+                        html.Abbr(" ℹ", title="Table traverse speed during laser scanning",
+                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
+                    ], style={"display": "flex", "alignItems": "center"}),
                     dcc.Slider(
                         id="scan-speed", min=1, max=50, step=1, value=12,
                         marks={1: {"label": "1"}, 12: {"label": "12"},
                                25: {"label": "25"}, 50: {"label": "50", **SLIDER_MARKS_STYLE}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div("SCAN WIDTH (mm)", style=LABEL_STYLE),
+                    html.Div([
+                        html.Span("SCAN WIDTH (mm)", style=LABEL_STYLE),
+                        html.Abbr(" ℹ", title="Horizontal extent of the scan area on the workpiece",
+                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
+                    ], style={"display": "flex", "alignItems": "center"}),
                     dcc.Slider(
                         id="scan-width", min=10, max=200, step=5, value=50,
                         marks={10: {"label": "10"}, 50: {"label": "50"},
                                100: {"label": "100"}, 200: {"label": "200"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div("SCAN HEIGHT (mm)", style=LABEL_STYLE),
+                    html.Div([
+                        html.Span("SCAN HEIGHT (mm)", style=LABEL_STYLE),
+                        html.Abbr(" ℹ", title="Vertical extent of the scan area on the workpiece",
+                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
+                    ], style={"display": "flex", "alignItems": "center"}),
                     dcc.Slider(
                         id="scan-height", min=10, max=200, step=5, value=50,
                         marks={10: {"label": "10"}, 50: {"label": "50"},
                                100: {"label": "100"}, 200: {"label": "200"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div("SPOT SIZE (mm)", style=LABEL_STYLE),
+                    html.Div([
+                        html.Span("SPOT SIZE (mm)", style=LABEL_STYLE),
+                        html.Abbr(" ℹ", title="Laser beam diameter on the workpiece surface",
+                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
+                    ], style={"display": "flex", "alignItems": "center"}),
                     dcc.Slider(
                         id="scan-spot", min=0.5, max=5, step=0.5, value=2.5,
                         marks={0.5: {"label": "0.5"}, 2.5: {"label": "2.5"}, 5: {"label": "5"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div("OVERLAP (%)", style=LABEL_STYLE),
+                    html.Div([
+                        html.Span("OVERLAP (%)", style=LABEL_STYLE),
+                        html.Abbr(" ℹ", title="How much each laser pass overlaps the previous one (higher = denser coverage)",
+                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
+                    ], style={"display": "flex", "alignItems": "center"}),
                     dcc.Slider(
                         id="scan-overlap", min=0, max=90, step=5, value=50,
                         marks={0: {"label": "0"}, 50: {"label": "50"}, 90: {"label": "90"}},
@@ -328,7 +388,11 @@ def _build_xy_tab():
             html.Div([
                 html.Div([
                     html.H3([_icon("layers"), " 3D Laboratory Layout"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
-                    dcc.Graph(id="scan-plot", style={"height": "420px"}),
+                    dcc.Loading(
+                        type="circle",
+                        color=COLORS["primary"],
+                        children=dcc.Graph(id="scan-plot", figure=_empty_scan_figure(), style={"height": "420px"}),
+                    ),
                 ], style=CARD_STYLE),
                 html.Div([
                     html.Div(
@@ -347,20 +411,24 @@ def _build_xy_tab():
         # ── G-Code Output ────────────────
         html.Div([
             html.H3([_icon("file-text"), " Generated G-Code"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
-            html.Pre(
-                id="gcode-output",
-                style={
-                    "backgroundColor": COLORS["bg"],
-                    "padding": "16px",
-                    "borderRadius": "8px",
-                    "maxHeight": "200px",
-                    "overflow": "auto",
-                    "fontSize": "12px",
-                    "fontFamily": "'Fira Code', 'Consolas', monospace",
-                    "color": COLORS["success"],
-                    "border": f"1px solid {COLORS['card_border']}",
-                },
-                children="Click 'Export G-Code' to generate...",
+            dcc.Loading(
+                type="circle",
+                color=COLORS["primary"],
+                children=html.Pre(
+                    id="gcode-output",
+                    style={
+                        "backgroundColor": COLORS["bg"],
+                        "padding": "16px",
+                        "borderRadius": "8px",
+                        "maxHeight": "200px",
+                        "overflow": "auto",
+                        "fontSize": "12px",
+                        "fontFamily": "'Fira Code', 'Consolas', monospace",
+                        "color": COLORS["muted"],
+                        "border": f"1px solid {COLORS['card_border']}",
+                    },
+                    children="Click 'Export G-Code' to generate...",
+                ),
             ),
         ], style=CARD_STYLE),
     ])
@@ -530,7 +598,7 @@ def _build_3d_tab():
                     style={"color": COLORS["muted"], "fontSize": "12px", "margin": "0 0 8px"}),
             dcc.Graph(
                 id="lab-3d",
-                figure=_build_3d_lab_figure(),
+                figure=build_3d_lab_figure(),
                 style={"height": "550px"},
             ),
         ], style=CARD_STYLE),
@@ -697,104 +765,7 @@ def _build_cost_tab():
 #                          3D LAB FIGURE
 # ══════════════════════════════════════════════════════════════════════
 
-def _build_3d_lab_figure():
-    """Build interactive 3D Plotly figure of the laboratory layout."""
-    fig = go.Figure()
 
-    def _add_box(name, x0, y0, z0, dx, dy, dz, color, opacity=0.7):
-        """Helper: add a 3D box as a mesh3d trace."""
-        verts_x = [x0, x0+dx, x0+dx, x0,    x0, x0+dx, x0+dx, x0]
-        verts_y = [y0, y0,    y0+dy, y0+dy,  y0, y0,    y0+dy, y0+dy]
-        verts_z = [z0, z0,    z0,    z0,     z0+dz, z0+dz, z0+dz, z0+dz]
-        i = [0,0,0,0,4,4,2,2,0,0,1,1]
-        j = [1,2,4,5,5,6,3,6,1,3,2,6]
-        k = [2,3,5,6,6,7,6,7,4,7,5,5]
-        fig.add_trace(go.Mesh3d(
-            x=verts_x, y=verts_y, z=verts_z,
-            i=i, j=j, k=k,
-            color=color, opacity=opacity,
-            name=name, showlegend=True,
-            hovertemplate=f"<b>{name}</b><br>"
-                          f"Size: {dx:.1f}m × {dy:.1f}m × {dz:.1f}m<extra></extra>",
-        ))
-
-    # Room (6m × 5m × 3m)
-    _add_box("Room (6×5m)", 0, 0, 0, 6, 5, 0.02, "#1e293b", 0.3)
-
-    # Optical table (1.2m × 0.9m × 0.06m)
-    _add_box("Optical Table", 1.5, 1.5, 0, 1.2, 0.9, 0.06, "#64748b", 0.9)
-
-    # X-Y stages on table
-    _add_box("X-Y Stage", 1.7, 1.7, 0.06, 0.8, 0.8, 0.08, "#3b82f6", 0.9)
-
-    # Processing chamber on stages
-    _add_box("Al Chamber", 1.85, 1.85, 0.14, 0.4, 0.4, 0.2, "#f59e0b", 0.8)
-
-    # Laser head above chamber
-    _add_box("Laser Head", 1.95, 1.95, 0.4, 0.15, 0.15, 0.15, "#ef4444", 0.9)
-
-    # Laser source unit
-    _add_box("Fiber Laser Source", 0.2, 0.5, 0, 0.6, 0.4, 0.5, "#ef4444", 0.7)
-
-    # Gas supply
-    _add_box("Argon Supply", 4.0, 0.3, 0, 0.3, 0.3, 1.2, "#10b981", 0.8)
-
-    # Control PC
-    _add_box("Control PC", 4.5, 1.5, 0, 0.6, 0.5, 0.6, "#8b5cf6", 0.7)
-
-    # Extraction system
-    _add_box("Extraction System", 4.5, 3.5, 0, 0.8, 0.5, 1.0, "#64748b", 0.6)
-
-    # Door indicator
-    fig.add_trace(go.Scatter3d(
-        x=[3], y=[0], z=[1],
-        mode="markers+text",
-        text=["🚪 Door"],
-        textposition="top center",
-        marker=dict(size=8, color="#f59e0b"),
-        name="Entrance",
-        showlegend=True,
-    ))
-
-    # E-stop buttons
-    fig.add_trace(go.Scatter3d(
-        x=[1.5, 4.5], y=[0.3, 0.3], z=[1.0, 1.0],
-        mode="markers+text",
-        text=["🔴 E-STOP", "🔴 E-STOP"],
-        textposition="top center",
-        marker=dict(size=10, color="#ef4444", symbol="diamond"),
-        name="E-Stop Buttons",
-        showlegend=True,
-    ))
-
-    fig.update_layout(
-        scene=dict(
-            xaxis=dict(title="X (m)", range=[-0.5, 6.5],
-                       backgroundcolor=COLORS["bg"], gridcolor="#1e293b",
-                       color=COLORS["muted"]),
-            yaxis=dict(title="Y (m)", range=[-0.5, 5.5],
-                       backgroundcolor=COLORS["bg"], gridcolor="#1e293b",
-                       color=COLORS["muted"]),
-            zaxis=dict(title="Z (m)", range=[0, 2],
-                       backgroundcolor=COLORS["bg"], gridcolor="#1e293b",
-                       color=COLORS["muted"]),
-            aspectratio=dict(x=1.2, y=1, z=0.4),
-            camera=dict(
-                eye=dict(x=1.8, y=-1.5, z=1.2),
-                center=dict(x=0, y=0, z=-0.1),
-            ),
-        ),
-        paper_bgcolor=COLORS["bg"],
-        plot_bgcolor=COLORS["bg"],
-        font=dict(color=COLORS["text"], size=11),
-        margin=dict(l=0, r=0, t=30, b=0),
-        legend=dict(
-            bgcolor=COLORS["card"],
-            bordercolor=COLORS["card_border"],
-            font=dict(size=11),
-        ),
-    )
-    return fig
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -816,9 +787,9 @@ def _build_cost_chart():
         values=values,
         hole=0.55,
         marker=dict(colors=[
-            "#3b82f6", "#ef4444", "#10b981", "#f59e0b",
-            "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
-            "#84cc16", "#6366f1",
+            "#5b8fb9", "#7c9eb2", "#6ba89a", "#c4a35a",
+            "#8e99a4", "#a3927d", "#6b9dad", "#b8956a",
+            "#7ea685", "#8895b3",
         ]),
         textinfo="label+percent",
         textposition="outside",
@@ -958,6 +929,17 @@ def generate_gcode(
 
 # ── Laser Callbacks ──────────────────────────────────────────────────
 
+# Fire button opens confirmation dialog instead of firing directly
+@app.callback(
+    Output("confirm-fire", "displayed"),
+    Input("btn-fire", "n_clicks"),
+    prevent_initial_call=True,
+)
+def show_fire_confirm(n_clicks):
+    """Show a confirmation dialog before firing the laser."""
+    return True
+
+
 @app.callback(
     [
         Output("laser-state", "children"),
@@ -969,14 +951,14 @@ def generate_gcode(
     [
         Input("btn-set-power", "n_clicks"),
         Input("btn-arm", "n_clicks"),
-        Input("btn-fire", "n_clicks"),
+        Input("confirm-fire", "submit_n_clicks"),
         Input("btn-stop-laser", "n_clicks"),
     ],
     State("laser-power", "value"),
     prevent_initial_call=True,
 )
-def handle_laser_actions(set_clicks, arm_clicks, fire_clicks, stop_clicks, power):
-    """Handle laser button clicks."""
+def handle_laser_actions(set_clicks, arm_clicks, fire_confirmed, stop_clicks, power):
+    """Handle laser button clicks. Fire only triggers after confirmation."""
     triggered = callback_context.triggered[0]["prop_id"]
     error_msg = None
     try:
@@ -984,7 +966,7 @@ def handle_laser_actions(set_clicks, arm_clicks, fire_clicks, stop_clicks, power
             lab.set_laser_power(power)
         elif "btn-arm" in triggered:
             lab.arm_laser()
-        elif "btn-fire" in triggered:
+        elif "confirm-fire" in triggered:
             lab.fire_laser()
         elif "btn-stop-laser" in triggered:
             lab.stop_laser()
@@ -1099,7 +1081,7 @@ def handle_gas_actions(set_clicks, purge_clicks, stop_clicks, flow):
         Input("btn-reset-estop", "n_clicks"),
         Input("refresh-interval", "n_intervals"),
     ],
-    prevent_initial_call=True,
+
 )
 def handle_safety(ld, ud, lc, uc, es, re, interval):
     """Handle safety button clicks and refresh audit log."""
@@ -1282,13 +1264,41 @@ def _build_scan_figure(xs, ys, pattern):
     return fig
 
 
+
+# ── 3D Visualisation Callback ────────────────────────────────────────
+
+@app.callback(
+    Output("lab-3d", "figure"),
+    Input("refresh-interval", "n_intervals"),
+    State("main-tabs", "value"),
+)
+def update_3d_view(n, tab):
+    """Update the 3D view with current lab state."""
+    # Performance optimization: only update if on the 3D tab
+    if tab != "tab-3d":
+        return dash.no_update
+        
+    status = lab.get_full_status()
+    t = status["table"]
+    l = status["laser"]
+    
+    # Check if laser is effectively "active" (firing)
+    is_firing = l["state"] == "FIRING"
+    
+    return build_3d_lab_figure(
+        pos_x_mm=t["position_x"],
+        pos_y_mm=t["position_y"],
+        laser_active=is_firing
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════
 #                          ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════
 
 def run():
     """Start the dashboard server."""
-    app.run(debug=True, port=8051)
+    app.run(debug=False, port=8051)
 
 
 if __name__ == "__main__":

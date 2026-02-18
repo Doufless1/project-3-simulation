@@ -13,6 +13,8 @@ import time as time_module
 
 import numpy as np
 
+from infrastructure.solvers.fdm_heat_solver_3d import compute_spot_radius_at_z
+
 from domain.entities import (
     Material,
     LaserBeam,
@@ -125,10 +127,9 @@ class AnalyticalHeatSolver(IHeatSolver):
             if dt_seg <= 0:
                 continue
 
-            # Compute spot radius at defocus distance
+            # Compute spot radius at defocus distance (DRY: shared helper)
             z_dist = trajectory.z[i]
-            z_r = laser.rayleigh_range
-            w_z = laser.spot_radius * math.sqrt(1 + (z_dist / z_r) ** 2)
+            w_z = compute_spot_radius_at_z(z_dist, laser)
 
             # Gaussian intensity at center
             r_sq = (cx - trajectory.x[i]) ** 2 + (cy - trajectory.y[i]) ** 2

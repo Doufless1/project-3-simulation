@@ -15,6 +15,7 @@ USAGE:
     materials = db.search_high_temp_alloys(limit=100)
 """
 
+import logging
 import os
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -25,7 +26,7 @@ try:
     MP_API_AVAILABLE = True
 except ImportError:
     MP_API_AVAILABLE = False
-    print("[WARNING] mp-api not installed. Run: pip install mp-api pymatgen")
+    logging.getLogger(__name__).warning("mp-api not installed. Run: pip install mp-api pymatgen")
 
 @dataclass
 class MaterialEntry:
@@ -62,7 +63,7 @@ class MaterialsProjectDB:
         
         Get your free key at: https://materialsproject.org/
         """
-        self.api_key = api_key or os.getenv("MP_API_KEY") or "Yg749IaOkGRrwr4qm2gkARbhQhk5jf9a"
+        self.api_key = api_key or os.getenv("MP_API_KEY", "")
         
         if not self.api_key:
             raise ValueError(

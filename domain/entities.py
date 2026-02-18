@@ -10,6 +10,7 @@ Design Patterns:
        via subclassing without modifying existing code.
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import Optional, List
 
@@ -108,19 +109,16 @@ class LaserBeam:
     @property
     def rayleigh_range(self) -> float:
         """z_R = π · w0² / λ [m]."""
-        import math
         return math.pi * self.spot_radius ** 2 / self.wavelength
 
     @property
     def peak_intensity(self) -> float:
         """I_0 = 2P / (π · w0²) [W/m²]."""
-        import math
         return 2 * self.power / (math.pi * self.spot_radius ** 2)
 
     @property
     def divergence_angle(self) -> float:
         """θ = λ / (π · w0) [rad]."""
-        import math
         return self.wavelength / (math.pi * self.spot_radius)
 
 
