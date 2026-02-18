@@ -1,9 +1,12 @@
 
+import logging
 import subprocess
 import time
 import json
 import os
 import sys
+
+logger = logging.getLogger(__name__)
 
 TARGET_SCORE = 1e30 # Effectively infinite
 SCRIPT_NAME = "advanced_discovery.py"
@@ -29,17 +32,18 @@ def get_best_score():
                 best_score = s
         return best_score
     except Exception as e:
-        print(f"Error reading DB: {e}")
+        logger.error("Error reading DB: %s", e)
         return 0
 
 def main():
-    print(f"Starting INFINITE EVOLUTION LOOP")
-    print(f"Target Score: {TARGET_SCORE}")
-    print("="*60)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.info("Starting INFINITE EVOLUTION LOOP")
+    logger.info("Target Score: %s", TARGET_SCORE)
+    logger.info("=" * 60)
 
     iteration = 1
     while True:
-        print(f"\n[Iteration {iteration}] Launching {SCRIPT_NAME}...")
+        logger.info("\n[Iteration %d] Launching %s...", iteration, SCRIPT_NAME)
         
         # Run the discovery script
         # We pass the target score so it knows when to stop internally if it hits it
@@ -48,22 +52,22 @@ def main():
             # Run as module from root
             subprocess.run([sys.executable, "-m", "discovery.advanced_discovery", str(TARGET_SCORE)], check=True)
         except subprocess.CalledProcessError as e:
-            print(f"Error running script: {e}")
+            logger.error("Error running script: %s", e)
             time.sleep(5)
             continue
         except KeyboardInterrupt:
-            print("\nStopped by user.")
+            logger.info("\nStopped by user.")
             break
 
         # Check results
         current_best = get_best_score()
-        print(f"Current Global Best Score: {current_best:,.0f}")
+        logger.info("Current Global Best Score: %,.0f", current_best)
         
         if current_best >= TARGET_SCORE:
-            print("\n" + "="*60)
-            print(f"SUCCESS! Target Score {TARGET_SCORE} reached/exceeded!")
-            print(f"Final Best Score: {current_best:,.0f}")
-            print("="*60)
+            logger.info("\n" + "=" * 60)
+            logger.info("SUCCESS! Target Score %s reached/exceeded!", TARGET_SCORE)
+            logger.info("Final Best Score: %,.0f", current_best)
+            logger.info("=" * 60)
             break
         
         iteration += 1

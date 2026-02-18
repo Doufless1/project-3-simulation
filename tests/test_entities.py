@@ -9,11 +9,7 @@ Tests cover:
 """
 
 import unittest
-import sys
 import os
-
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from domain.entities import Material, LaserBeam, Trajectory
 from domain.value_objects import Position3D, Temperature, Composition

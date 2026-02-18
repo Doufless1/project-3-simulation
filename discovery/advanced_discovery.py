@@ -17,6 +17,7 @@ ALGORITHM: Advanced Genetic Algorithm with:
 - Real alloy seeding
 """
 
+import logging
 import random
 import json
 import os
@@ -27,6 +28,8 @@ from typing import List, Dict, Optional
 # Import real materials database (Materials Project)
 from materials_project_db import MaterialsProjectDB, get_offline_database
 from .materials_db import ELEMENTS, Element
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # CONFIGURATION
@@ -73,7 +76,7 @@ class SuperAlloy:
     def _calculate_properties(self):
         """Compute properties using advanced mixing rules."""
         total = sum(self.composition.values())
-        if total < 0.99 or total > 1.01 and total > 0:
+        if (total < 0.99 or total > 1.01) and total > 0:
             for k in self.composition:
                 self.composition[k] /= total
         
@@ -160,49 +163,46 @@ class AdvancedDiscoveryEngine:
         try:
             self.mp_db = MaterialsProjectDB()
             self.use_online = True
-            print("Connected to Materials Project API")
+            logger.info("Connected to Materials Project API")
         except Exception as e:
             self.use_online = False
-            print("Using offline database fallback")
+            logger.info("Using offline database fallback")
 
     def seed_from_library(self):
         """Seed population from PREVIOUS discoveries (discovered_materials.json)."""
-        filename = "discovered_materials.json"
+        filename = self.RESULTS_FILE
         if not os.path.exists(filename):
-            print("No previous library found.")
+            logger.info("No previous library found.")
             return
 
-        print("Seeding from Discovered Materials Library...")
-        try:
-            with open(filename, 'r') as f:
-                data = json.load(f)
-            
-            # Helper to get score safely
-            def get_score(entry):
-                if 'properties' in entry and 'Score' in entry['properties']:
-                    return entry['properties']['Score']
-                return entry.get('fitness_score', 0)
+        logger.info("Seeding from Discovered Materials Library...")
+        data = self._load_json_file(filename)
+        if data is None:
+            return
 
-            # Load top 20 best performing
-            data.sort(key=get_score, reverse=True)
-            top_previous = data[:20]
-            
-            for m in top_previous:
-                comp = m['composition']
-                # Ensure composition is clean (handle string keys if any weirdness)
-                
-                sa = SuperAlloy(
-                    name=f"Evolved_{m['name']}",
-                    generation=0,
-                    composition=comp
-                )
-                score = get_score(m)
-                sa.fitness_score = score # Pre-set score
-                self.population.append(sa)
-                print(f"  Loaded: {m['name']} (Score={score:.0f})")
-                
-        except Exception as e:
-            print(f"Error loading library: {e}")
+        # Helper to get score safely
+        def get_score(entry):
+            if 'properties' in entry and 'Score' in entry['properties']:
+                return entry['properties']['Score']
+            return entry.get('fitness_score', 0)
+
+        # Load top 20 best performing
+        data.sort(key=get_score, reverse=True)
+        top_previous = data[:20]
+
+        for m in top_previous:
+            comp = m['composition']
+            # Ensure composition is clean (handle string keys if any weirdness)
+
+            sa = SuperAlloy(
+                name=f"Evolved_{m['name']}",
+                generation=0,
+                composition=comp
+            )
+            score = get_score(m)
+            sa.fitness_score = score # Pre-set score
+            self.population.append(sa)
+            logger.info("  Loaded: %s (Score=%.0f)", m['name'], score)
             
     def seed_from_real_alloys(self):
         """Initialize population from real materials + Library."""
@@ -212,23 +212,23 @@ class AdvancedDiscoveryEngine:
         # Ta4HfC5 approx composition
         tahfc_seed = SuperAlloy("Seed_Ta4HfC5_Target", 0, {'Ta': 0.7, 'Hf': 0.15, 'C': 0.15})
         self.population.append(tahfc_seed)
-        print("  Seeded: Ta4HfC5 Target (The 4000C Candidate)")
+        logger.info("  Seeded: Ta4HfC5 Target (The 4000C Candidate)")
         
         if len(self.population) >= POPULATION_SIZE:
              return # Already full of champions
              
-        print("Seeding from Real Database...")
+        logger.info("Seeding from Real Database...")
         
         seed_materials = []
         
         if self.use_online:
             try:
                 # Search for high temp alloys online
-                print("Fetching top tungsten compounds and carbides...")
+                logger.info("Fetching top tungsten compounds and carbides...")
                 seed_materials.extend(self.mp_db.get_all_tungsten_compounds(limit=20))
                 seed_materials.extend(self.mp_db.search_carbides(limit=20))
             except Exception as e:
-                print(f"Online fetch failed: {e}")
+                logger.error("Online fetch failed: %s", e)
                 self.use_online = False
                 
         if not self.use_online:
@@ -245,7 +245,7 @@ class AdvancedDiscoveryEngine:
                     composition=comp
                 )
                 self.population.append(sa)
-                print(f"  Seeded (Offline): {m['formula']}")
+                logger.info("  Seeded (Offline): %s", m['formula'])
 
         # Process online results if any
         if self.use_online:
@@ -260,8 +260,8 @@ class AdvancedDiscoveryEngine:
                     )
                     self.population.append(sa)
                     if len(self.population) < 10: # Just print a few
-                        print(f"  Seeded (Online): {m.formula}")
-                except:
+                        logger.info("  Seeded (Online): %s", m.formula)
+                except Exception:
                     continue
         
         # Fill rest with random mutations of seeds
@@ -485,13 +485,14 @@ class AdvancedDiscoveryEngine:
             best = self.population[0]
             
             if gen % 5 == 0:
-                print(f"Gen {gen:3d}: Best Score {best.fitness_score:,.0f} | "
-                      f"Tm={best.T_melt:.0f}C | HV={best.hardness:.0f} | "
-                      f"rho={best.density:.0f} kg/m3")
+                logger.info(
+                    "Gen %3d: Best Score %,.0f | Tm=%.0fC | HV=%.0f | rho=%.0f kg/m3",
+                    gen, best.fitness_score, best.T_melt, best.hardness, best.density,
+                )
             
             # Early stop if target reached
             if best.fitness_score >= target_score:
-                print(f"\n[TARGET REACHED at Gen {gen}!]")
+                logger.info("[TARGET REACHED at Gen %d!]", gen)
                 break
         
         # Final results - TOP 5
@@ -507,13 +508,13 @@ class AdvancedDiscoveryEngine:
             if "Gen" in winner.name or "Seed" in winner.name:
                 winner.name = self._generate_name(winner)
                 
-            print(f"\n#{i+1}: {winner.name}")
-            print(f"   Composition: {self._format_comp(winner.composition)}")
-            print(f"   Melting Point: {winner.T_melt:,.0f} °C")
-            print(f"   Hardness: {winner.hardness:,.0f} HV")
-            print(f"   Erosion Rate: {winner.erosion_rate:.2f} (Index)")
-            print(f"   Optimal Thickness: {winner.optimal_thickness:.1f} µm")
-            print(f"   SCORE: {winner.fitness_score:,.0f}")
+            logger.info("\n#%d: %s", i+1, winner.name)
+            logger.info("   Composition: %s", self._format_comp(winner.composition))
+            logger.info("   Melting Point: %,.0f °C", winner.T_melt)
+            logger.info("   Hardness: %,.0f HV", winner.hardness)
+            logger.info("   Erosion Rate: %.2f (Index)", winner.erosion_rate)
+            logger.info("   Optimal Thickness: %.1f µm", winner.optimal_thickness)
+            logger.info("   SCORE: %,.0f", winner.fitness_score)
             
             # Save to library
             self._save_results(winner)
@@ -541,15 +542,8 @@ class AdvancedDiscoveryEngine:
     
     def _save_results(self, winner: SuperAlloy):
         """Save to discovered_materials.json."""
-        filename = "discovered_materials.json"
-        data = []
-        
-        if os.path.exists(filename):
-            try:
-                with open(filename, 'r') as f:
-                    data = json.load(f)
-            except:
-                pass
+        filename = self.RESULTS_FILE
+        data = self._load_json_file(filename) or []
         
         # Check if already exists by name
         if any(d['name'] == winner.name for d in data):
@@ -569,9 +563,28 @@ class AdvancedDiscoveryEngine:
         }
         data.append(entry)
         
-        with open(filename, 'w') as f:
+        self._save_json_file(filename, data)
+        logger.info("   -> Saved to %s", filename)
+
+    # ── JSON I/O helpers (DRY) ──────────────────────────────────────
+
+    @staticmethod
+    def _load_json_file(path):
+        """Load JSON file, returning None on error."""
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error("Error reading %s: %s", path, e)
+            return None
+
+    @staticmethod
+    def _save_json_file(path, data):
+        """Write JSON data to file."""
+        with open(path, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"   -> Saved to {filename}")
 
 
 if __name__ == "__main__":
@@ -580,7 +593,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         try:
             target = float(sys.argv[1])
-        except:
+        except Exception:
             pass
             
     engine = AdvancedDiscoveryEngine()
