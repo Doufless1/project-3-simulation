@@ -61,6 +61,135 @@ METRIC_VALUE = {
 }
 
 # ============================================================================
+# Tooltip & Help Styles
+# ============================================================================
+
+TOOLTIP_ICON_STYLE = {
+    "display": "inline-flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "width": "16px",
+    "height": "16px",
+    "borderRadius": "50%",
+    "background": "rgba(100,140,255,0.15)",
+    "color": "#64b5f6",
+    "fontSize": "10px",
+    "fontWeight": "700",
+    "cursor": "help",
+    "marginLeft": "6px",
+    "verticalAlign": "middle",
+    "lineHeight": "1",
+    "flexShrink": "0",
+}
+
+WARNING_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "8px",
+    "padding": "8px 12px",
+    "borderRadius": "8px",
+    "fontSize": "12px",
+    "fontWeight": "500",
+    "marginTop": "6px",
+    "background": "rgba(255, 165, 0, 0.08)",
+    "border": "1px solid rgba(255, 165, 0, 0.2)",
+    "color": "#ffb347",
+}
+
+DANGER_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "8px",
+    "padding": "8px 12px",
+    "borderRadius": "8px",
+    "fontSize": "12px",
+    "fontWeight": "500",
+    "marginTop": "6px",
+    "background": "rgba(255, 80, 80, 0.08)",
+    "border": "1px solid rgba(255, 80, 80, 0.2)",
+    "color": "#ff6b6b",
+}
+
+SUCCESS_HINT_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "8px",
+    "padding": "8px 12px",
+    "borderRadius": "8px",
+    "fontSize": "12px",
+    "fontWeight": "500",
+    "marginTop": "6px",
+    "background": "rgba(80, 200, 100, 0.08)",
+    "border": "1px solid rgba(80, 200, 100, 0.2)",
+    "color": "#50c864",
+}
+
+PRESET_BTN_STYLE = {
+    "flex": "1",
+    "padding": "10px 8px",
+    "background": "rgba(67, 97, 238, 0.08)",
+    "color": "#8898c0",
+    "border": "1px solid rgba(100, 140, 255, 0.15)",
+    "borderRadius": "8px",
+    "fontSize": "11px",
+    "fontWeight": "600",
+    "cursor": "pointer",
+    "transition": "all 0.2s ease",
+    "textAlign": "center",
+    "lineHeight": "1.4",
+}
+
+PRESET_BTN_ACTIVE_STYLE = {
+    **PRESET_BTN_STYLE,
+    "background": "rgba(67, 97, 238, 0.2)",
+    "color": "#a0b8ff",
+    "borderColor": "rgba(100, 140, 255, 0.35)",
+}
+
+BANNER_STYLE = {
+    "background": "linear-gradient(135deg, rgba(67,97,238,0.12) 0%, rgba(58,12,163,0.08) 100%)",
+    "border": "1px solid rgba(100,140,255,0.15)",
+    "borderRadius": "12px",
+    "padding": "16px 20px",
+    "margin": "0 24px 0 24px",
+    "display": "flex",
+    "alignItems": "flex-start",
+    "justifyContent": "space-between",
+    "gap": "16px",
+}
+
+BANNER_STEP_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "8px",
+    "color": "#a0b8e0",
+    "fontSize": "13px",
+    "fontWeight": "500",
+}
+
+BANNER_STEP_NUMBER = {
+    "display": "inline-flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "width": "22px",
+    "height": "22px",
+    "borderRadius": "50%",
+    "background": "rgba(67,97,238,0.25)",
+    "color": "#64b5f6",
+    "fontSize": "11px",
+    "fontWeight": "700",
+    "flexShrink": "0",
+}
+
+INTERPRETATION_STYLE = {
+    "color": "#607898",
+    "fontSize": "11px",
+    "fontWeight": "400",
+    "marginTop": "2px",
+    "lineHeight": "1.5",
+}
+
+# ============================================================================
 # Plotly Dark Theme Template
 # ============================================================================
 
@@ -454,6 +583,107 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
                 transition-duration: 0.01ms !important;
             }
         }
+
+        /* ================================================================
+           RUN BUTTON — PULSE ANIMATION (before first click)
+           ================================================================ */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 4px 20px rgba(67,97,238,0.35); }
+            50% { box-shadow: 0 4px 30px rgba(67,97,238,0.6), 0 0 40px rgba(67,97,238,0.2); }
+        }
+        .run-btn-pulse {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        .run-btn-computing {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* ================================================================
+           CUSTOM WARNING/DANGER ICONS (pure CSS, no emojis)
+           ================================================================ */
+        .icon-warning, .icon-danger, .icon-success {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .icon-warning {
+            background: rgba(255,179,71,0.2);
+            color: #ffb347;
+            border: 1.5px solid rgba(255,179,71,0.4);
+        }
+        .icon-danger {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+            border: 1.5px solid rgba(255,107,107,0.4);
+        }
+        .icon-success {
+            background: rgba(80,200,100,0.2);
+            color: #50c864;
+            border: 1.5px solid rgba(80,200,100,0.4);
+        }
+
+        /* ================================================================
+           TOOLTIP INFO ICON HOVER
+           ================================================================ */
+        .info-icon {
+            transition: all 0.2s ease;
+        }
+        .info-icon:hover {
+            background: rgba(100,140,255,0.3) !important;
+            transform: scale(1.1);
+        }
+
+        /* ================================================================
+           PRESET BUTTONS HOVER
+           ================================================================ */
+        .preset-btn:hover {
+            background: rgba(67,97,238,0.2) !important;
+            color: #a0b8ff !important;
+            border-color: rgba(100,140,255,0.35) !important;
+            transform: translateY(-1px);
+        }
+        .preset-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* ================================================================
+           BANNER DISMISS
+           ================================================================ */
+        .getting-started-banner {
+            transition: all 0.35s ease;
+            overflow: hidden;
+        }
+        .getting-started-banner.banner-hidden {
+            max-height: 0 !important;
+            padding: 0 20px !important;
+            margin-bottom: 0 !important;
+            border-color: transparent !important;
+            opacity: 0;
+        }
+
+        /* ================================================================
+           TAB ICONS (CSS-only indicators)
+           ================================================================ */
+        .tab-icon {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .tab-icon-3d { background: #4361ee; }
+        .tab-icon-section { background: #e056fd; }
+        .tab-icon-energy { background: #ffb347; }
+        .tab-icon-depth { background: #ff6b6b; }
     </style>
 </head>
 <body>
