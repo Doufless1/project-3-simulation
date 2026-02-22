@@ -1,6 +1,7 @@
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
+from shared.design_tokens import COLORS, APP_DESCRIPTION_STYLE, FONT_FAMILY
 from ..constants import (
     CARD_STYLE, SECTION_TITLE_STYLE, SLIDER_LABEL_STYLE,
     VALUE_STYLE, RESULT_CARD_STYLE, TOOLTIP_ICON_STYLE,
@@ -167,32 +168,33 @@ def get_layout():
     """Construct the main Dash layout."""
     return html.Div(
         style={
-            "background": "linear-gradient(135deg, #0a0e1a 0%, #0d1529 50%, #0a1020 100%)",
+            "background": f"linear-gradient(135deg, {COLORS['bg']} 0%, {COLORS['bg_subtle']} 50%, {COLORS['bg']} 100%)",
             "minHeight": "100vh",
-            "fontFamily": "Inter, system-ui, -apple-system, sans-serif",
+            "fontFamily": FONT_FAMILY,
         },
         children=[
             # ---- Header ----
-            html.Div(
+            html.Header(
                 className="sim-header",
+                role="banner",
                 style={
                     "padding": "20px 32px",
                     "display": "flex",
                     "alignItems": "center",
                     "justifyContent": "space-between",
-                    "borderBottom": "1px solid rgba(100,140,255,0.08)",
+                    "borderBottom": f"1px solid {COLORS['card_border']}",
                 },
                 children=[
                     html.Div([
                         html.H1("Laser-HVOF 3D Simulation", style={
-                            "color": "#e0e8ff",
+                            "color": COLORS["text"],
                             "fontSize": "24px",
                             "fontWeight": "700",
                             "margin": "0",
                             "letterSpacing": "-0.5px",
                         }),
-                        html.P("Interactive simulation lab  ·  Clean Architecture", style={
-                            "color": "#506888",
+                        html.P("Interactive simulation lab \u00b7 Clean Architecture", style={
+                            "color": COLORS["muted"],
                             "fontSize": "12px",
                             "margin": "4px 0 0 0",
                             "letterSpacing": "0.5px",
@@ -202,17 +204,19 @@ def get_layout():
                         style={"display": "flex", "alignItems": "center", "gap": "12px"},
                         children=[
                             html.Button(
-                                "☰",
+                                "\u2630",
                                 id="hamburger-btn",
                                 className="hamburger-btn",
                                 n_clicks=0,
+                                **{"aria-label": "Open controls panel"},
                             ),
                             html.Div(
                                 id="status-badge",
                                 children="Ready",
+                                role="status",
                                 style={
-                                    "background": "rgba(80,200,100,0.15)",
-                                    "color": "#50c864",
+                                    "background": f"rgba(16,185,129,0.15)",
+                                    "color": COLORS["success"],
                                     "padding": "6px 16px",
                                     "borderRadius": "20px",
                                     "fontSize": "12px",
@@ -220,6 +224,37 @@ def get_layout():
                                 },
                             ),
                         ],
+                    ),
+                ],
+            ),
+
+            # ---- R6: App Description — "What does this app do?" ----
+            html.Div(
+                id="sim-description-banner",
+                style={**APP_DESCRIPTION_STYLE, "margin": "0 24px"},
+                children=[
+                    html.P(
+                        "Physics-based thermal simulation. "
+                        "Configure materials and laser parameters, then visualize temperature fields in 3D.",
+                        style={
+                            "margin": "0",
+                            "fontSize": "13px",
+                            "color": COLORS["muted"],
+                            "lineHeight": "1.5",
+                            "flex": "1",
+                        },
+                    ),
+                    html.Button(
+                        "\u00d7",
+                        id="dismiss-sim-desc-btn",
+                        n_clicks=0,
+                        style={
+                            "background": "none", "border": "none",
+                            "color": COLORS["muted"], "fontSize": "18px",
+                            "cursor": "pointer", "padding": "0 4px",
+                            "lineHeight": "1",
+                        },
+                        **{"aria-label": "Dismiss description"},
                     ),
                 ],
             ),
@@ -450,10 +485,11 @@ def get_layout():
                                 id="run-btn",
                                 n_clicks=0,
                                 className="run-btn-pulse",
+                                **{"aria-label": "Run simulation with current parameters"},
                                 style={
                                     "width": "100%",
                                     "padding": "14px",
-                                    "background": "linear-gradient(135deg, #4361ee, #3a0ca3)",
+                                    "background": f"linear-gradient(135deg, {COLORS['primary']}, {COLORS['accent']})",
                                     "color": "white",
                                     "border": "none",
                                     "borderRadius": "12px",
@@ -461,9 +497,10 @@ def get_layout():
                                     "fontWeight": "700",
                                     "cursor": "pointer",
                                     "letterSpacing": "0.5px",
-                                    "boxShadow": "0 4px 20px rgba(67,97,238,0.35)",
+                                    "boxShadow": f"0 4px 20px rgba(59,130,246,0.35)",
                                     "transition": "all 0.2s ease",
                                     "marginBottom": "16px",
+                                    "fontFamily": FONT_FAMILY,
                                 },
                             ),
 
@@ -565,7 +602,7 @@ def get_layout():
             dcc.Loading(
                 id="loading-overlay",
                 type="circle",
-                color="#4361ee",
+                color=COLORS["primary"],
                 children=[html.Div(id="loading-target")],
                 style={
                     "position": "fixed",
@@ -647,7 +684,7 @@ def get_layout():
                                 n_clicks=0,
                                 style={
                                     "padding": "10px 24px",
-                                    "background": "linear-gradient(135deg, #4361ee, #3a0ca3)",
+                                    "background": f"linear-gradient(135deg, {COLORS['primary']}, {COLORS['accent']})",
                                     "color": "white",
                                     "border": "none",
                                     "borderRadius": "8px",
