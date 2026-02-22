@@ -28,7 +28,8 @@ app.layout = get_layout()
 from .callbacks import (
     navigation_callbacks,
     material_callbacks,
-    simulation_callbacks
+    simulation_callbacks,
+    preset_callbacks,
 )
 
 # Expose server for WSGI

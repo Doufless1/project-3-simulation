@@ -87,6 +87,47 @@ BTN_STYLE = {
 
 SLIDER_MARKS_STYLE = {"color": COLORS["muted"], "fontSize": "11px"}
 
+INFO_ICON_STYLE = {
+    "display": "inline-flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "width": "18px",
+    "height": "18px",
+    "borderRadius": "50%",
+    "backgroundColor": "rgba(139, 92, 246, 0.15)",
+    "color": COLORS["accent"],
+    "fontSize": "11px",
+    "fontWeight": "700",
+    "cursor": "help",
+    "marginLeft": "6px",
+    "flexShrink": "0",
+}
+
+TOOLTIP_STYLE = {
+    "position": "relative",
+    "display": "inline-flex",
+    "alignItems": "center",
+}
+
+TAB_INTRO_STYLE = {
+    "backgroundColor": "rgba(59, 130, 246, 0.08)",
+    "border": f"1px solid rgba(59, 130, 246, 0.2)",
+    "borderRadius": "8px",
+    "padding": "12px 16px",
+    "marginBottom": "16px",
+    "fontSize": "13px",
+    "color": COLORS["muted"],
+    "lineHeight": "1.5",
+}
+
+BANNER_STYLE = {
+    "background": "linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.12) 100%)",
+    "border": f"1px solid rgba(59, 130, 246, 0.25)",
+    "borderRadius": "12px",
+    "padding": "20px",
+    "marginBottom": "20px",
+}
+
 
 def _icon(name, size=16, color=None):
     """Factory: creates a NanoBanana style SVG icon."""
@@ -140,6 +181,23 @@ def _indicator(label, value_id, color="text"):
     ], style={"flex": "1", "minWidth": "120px"})
 
 
+def _info_tip(label, tip_text):
+    """Factory: label with an info tooltip icon (DRY)."""
+    return html.Div([
+        html.Span(label, style=LABEL_STYLE),
+        html.Abbr(
+            "i",
+            title=tip_text,
+            style=INFO_ICON_STYLE,
+        ),
+    ], style={"display": "flex", "alignItems": "center"})
+
+
+def _tab_intro(text):
+    """Factory: intro description at the top of a tab (DRY)."""
+    return html.Div(text, style=TAB_INTRO_STYLE)
+
+
 # ══════════════════════════════════════════════════════════════════════
 #                             LAYOUT
 # ══════════════════════════════════════════════════════════════════════
@@ -183,6 +241,8 @@ app.layout = html.Div(
         "color": COLORS["text"],
         "fontFamily": "'Inter', 'Segoe UI', system-ui, sans-serif",
         "padding": "24px",
+        "display": "flex",
+        "flexDirection": "column",
     },
     children=[
         # ── Header ───────────────────────────
@@ -216,55 +276,152 @@ app.layout = html.Div(
             ),
         ], style={"marginBottom": "24px"}),
 
-        # ── Tabs ─────────────────────────────
-        dcc.Tabs(
-            id="main-tabs",
-            value="tab-xy",
-            style={"marginBottom": "20px"},
-            colors={
-                "border": COLORS["card_border"],
-                "primary": COLORS["primary"],
-                "background": COLORS["card"],
-            },
+        # ── How to Operate Banner ─────────────
+        html.Div(
+            id="lab-onboarding-banner",
+            style=BANNER_STYLE,
             children=[
-                dcc.Tab(
-                    label="X-Y Table", value="tab-xy",
-                    style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    children=[_icon("tab-xy"), " X-Y Table"]
-                ),
-                dcc.Tab(
-                    label="Laser", value="tab-laser",
-                    style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    children=[_icon("tab-laser"), " Laser"]
-                ),
-                dcc.Tab(
-                    label="Safety", value="tab-safety",
-                    style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    children=[_icon("tab-safety"), " Safety"]
-                ),
-                dcc.Tab(
-                    label="3D Lab", value="tab-3d",
-                    style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    children=[_icon("tab-3d"), " 3D Lab"]
-                ),
-                dcc.Tab(
-                    label="Cost", value="tab-cost",
-                    style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                    children=[_icon("tab-cost"), " Cost"]
-                ),
+                html.Div([
+                    html.H3(
+                        "How to Operate This Lab",
+                        style={
+                            "margin": "0 0 12px",
+                            "fontSize": "16px",
+                            "fontWeight": "700",
+                            "color": COLORS["text"],
+                        },
+                    ),
+                    html.Button(
+                        "Dismiss",
+                        id="btn-dismiss-banner",
+                        n_clicks=0,
+                        style={
+                            "background": "none",
+                            "border": f"1px solid {COLORS['card_border']}",
+                            "color": COLORS["muted"],
+                            "padding": "4px 12px",
+                            "borderRadius": "6px",
+                            "cursor": "pointer",
+                            "fontSize": "12px",
+                        },
+                    ),
+                ], style={"display": "flex", "justifyContent": "space-between", "alignItems": "center"}),
+                html.Div([
+                    html.Div([
+                        html.Div("1", style={
+                            "width": "28px", "height": "28px", "borderRadius": "50%",
+                            "backgroundColor": COLORS["success"], "color": "#fff",
+                            "display": "flex", "alignItems": "center", "justifyContent": "center",
+                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
+                        }),
+                        html.Div([
+                            html.Strong("Lock Safety", style={"color": COLORS["text"]}),
+                            html.Div("Go to the Safety tab. Lock the door and chamber interlocks.",
+                                     style={"fontSize": "12px", "color": COLORS["muted"]}),
+                        ]),
+                    ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
+                    html.Div([
+                        html.Div("2", style={
+                            "width": "28px", "height": "28px", "borderRadius": "50%",
+                            "backgroundColor": COLORS["warning"], "color": "#fff",
+                            "display": "flex", "alignItems": "center", "justifyContent": "center",
+                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
+                        }),
+                        html.Div([
+                            html.Strong("Start Gas", style={"color": COLORS["text"]}),
+                            html.Div("Go to the Laser tab. Set Argon flow and click Purge to flush O\u2082.",
+                                     style={"fontSize": "12px", "color": COLORS["muted"]}),
+                        ]),
+                    ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
+                    html.Div([
+                        html.Div("3", style={
+                            "width": "28px", "height": "28px", "borderRadius": "50%",
+                            "backgroundColor": COLORS["danger"], "color": "#fff",
+                            "display": "flex", "alignItems": "center", "justifyContent": "center",
+                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
+                        }),
+                        html.Div([
+                            html.Strong("Fire Laser", style={"color": COLORS["text"]}),
+                            html.Div("Set power, click Arm, then Fire. All interlocks must be locked.",
+                                     style={"fontSize": "12px", "color": COLORS["muted"]}),
+                        ]),
+                    ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
+                    html.Div([
+                        html.Div("4", style={
+                            "width": "28px", "height": "28px", "borderRadius": "50%",
+                            "backgroundColor": COLORS["primary"], "color": "#fff",
+                            "display": "flex", "alignItems": "center", "justifyContent": "center",
+                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
+                        }),
+                        html.Div([
+                            html.Strong("Run Scan", style={"color": COLORS["text"]}),
+                            html.Div("Go to X-Y Table. Set scan parameters, preview, and run.",
+                                     style={"fontSize": "12px", "color": COLORS["muted"]}),
+                        ]),
+                    ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
+                ], style={"display": "flex", "gap": "16px", "flexWrap": "wrap"}),
             ],
         ),
 
-        # ── Tab content ──────────────────────
-        html.Div(id="tab-content"),
+        # ── Main Content Grid ────────────────
+        html.Div([
+            # Left Panel: Controls
+            html.Div([
+                dcc.Tabs(
+                    id="main-tabs",
+                    value="tab-xy",
+                    style={"marginBottom": "20px"},
+                    colors={
+                        "border": COLORS["card_border"],
+                        "primary": COLORS["primary"],
+                        "background": COLORS["card"],
+                    },
+                    children=[
+                        dcc.Tab(
+                            label="X-Y Table", value="tab-xy",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            children=[_icon("tab-xy"), " X-Y Table"]
+                        ),
+                        dcc.Tab(
+                            label="Laser", value="tab-laser",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            children=[_icon("tab-laser"), " Laser"]
+                        ),
+                        dcc.Tab(
+                            label="Safety", value="tab-safety",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            children=[_icon("tab-safety"), " Safety"]
+                        ),
+                        dcc.Tab(
+                            label="Cost", value="tab-cost",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            children=[_icon("tab-cost"), " Cost"]
+                        ),
+                        dcc.Tab(
+                            label="3D View", value="tab-3d",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
+                            children=[_icon("layers"), " 3D View"]
+                        ),
+                    ],
+                ),
+                html.Div(id="tab-content"),
+            ], style={"flex": "1"}),
 
-        # ── Hidden interval for auto-refresh ─
+        ], style={"display": "flex", "gap": "24px", "flexWrap": "wrap", "flex": "1", "alignItems": "stretch"}),
+
+        # ── Hidden interval for auto-refresh (2s instead of 0.5s) ─
         dcc.Interval(id="refresh-interval", interval=2000, n_intervals=0),
+
+        # ── Separate slower interval for 3D (3s — WebGL is expensive) ─
+        dcc.Interval(id="3d-interval", interval=3000, n_intervals=0),
+
+        # ── Shared status store (avoids duplicate get_full_status calls) ─
+        dcc.Store(id="status-store"),
 
         # ── Fire confirmation dialog ─
         dcc.ConfirmDialog(
@@ -301,6 +458,10 @@ app.layout = html.Div(
 def _build_xy_tab():
     """X-Y Table control panel with scan visualization."""
     return html.Div([
+        _tab_intro(
+            "Control the motorized positioning table that moves HVOF-coated samples beneath the laser beam. "
+            "Set scan parameters, preview the path, and export G-Code for the CNC motion controller."
+        ),
         # ── Controls Row ─────────────────
         html.Div([
             # Left: Controls
@@ -312,70 +473,55 @@ def _build_xy_tab():
                         _btn("Run Scan", "btn-scan", "success", "play"),
                         _btn("Export G-Code", "btn-gcode", "accent", "save"),
                     ]),
+                    html.P(
+                        "Home = reset table to origin. Run Scan = execute the pattern below. "
+                        "Export G-Code = generate machine instructions for a real CNC controller.",
+                        style={"fontSize": "11px", "color": COLORS["muted"], "marginTop": "10px", "lineHeight": "1.5"},
+                    ),
                 ], style=CARD_STYLE),
 
                 html.Div([
                     html.H3([_icon("settings"), " Scan Parameters"], style={"margin": "0 0 16px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
-                    html.Div("PATTERN", style=LABEL_STYLE),
+                    _info_tip("PATTERN", "Raster = back-and-forth rows (most common). Spiral = circular from center outward. Linear = single straight pass."),
                     dcc.Dropdown(
                         id="scan-pattern",
                         options=[
-                            {"label": "Raster (serpentine)", "value": "raster"},
-                            {"label": "Spiral (Archimedean)", "value": "spiral"},
-                            {"label": "Linear (single pass)", "value": "linear"},
+                            {"label": "Raster (back-and-forth rows)", "value": "raster"},
+                            {"label": "Spiral (center outward)", "value": "spiral"},
+                            {"label": "Linear (single straight pass)", "value": "linear"},
                         ],
                         value="raster",
                         style={"backgroundColor": COLORS["bg"], "color": COLORS["text"],
                                "borderRadius": "6px", "marginBottom": "12px"},
                     ),
-                    html.Div([
-                        html.Span("SPEED (mm/s)", style=LABEL_STYLE),
-                        html.Abbr(" ℹ", title="Table traverse speed during laser scanning",
-                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
-                    ], style={"display": "flex", "alignItems": "center"}),
+                    _info_tip("SPEED (mm/s)", "How fast the table moves during scanning. Slower = more energy per point (hotter). Faster = less energy (cooler). Typical range: 5-50 mm/s."),
                     dcc.Slider(
                         id="scan-speed", min=1, max=50, step=1, value=12,
                         marks={1: {"label": "1"}, 12: {"label": "12"},
                                25: {"label": "25"}, 50: {"label": "50", **SLIDER_MARKS_STYLE}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div([
-                        html.Span("SCAN WIDTH (mm)", style=LABEL_STYLE),
-                        html.Abbr(" ℹ", title="Horizontal extent of the scan area on the workpiece",
-                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
-                    ], style={"display": "flex", "alignItems": "center"}),
+                    _info_tip("SCAN WIDTH (mm)", "Horizontal extent of the scan area on the sample surface."),
                     dcc.Slider(
                         id="scan-width", min=10, max=200, step=5, value=50,
                         marks={10: {"label": "10"}, 50: {"label": "50"},
                                100: {"label": "100"}, 200: {"label": "200"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div([
-                        html.Span("SCAN HEIGHT (mm)", style=LABEL_STYLE),
-                        html.Abbr(" ℹ", title="Vertical extent of the scan area on the workpiece",
-                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
-                    ], style={"display": "flex", "alignItems": "center"}),
+                    _info_tip("SCAN HEIGHT (mm)", "Vertical extent of the scan area on the sample surface."),
                     dcc.Slider(
                         id="scan-height", min=10, max=200, step=5, value=50,
                         marks={10: {"label": "10"}, 50: {"label": "50"},
                                100: {"label": "100"}, 200: {"label": "200"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div([
-                        html.Span("SPOT SIZE (mm)", style=LABEL_STYLE),
-                        html.Abbr(" ℹ", title="Laser beam diameter on the workpiece surface",
-                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
-                    ], style={"display": "flex", "alignItems": "center"}),
+                    _info_tip("SPOT SIZE (mm)", "Laser beam diameter on the surface. Smaller = more concentrated energy. Larger = wider but gentler treatment."),
                     dcc.Slider(
                         id="scan-spot", min=0.5, max=5, step=0.5, value=2.5,
                         marks={0.5: {"label": "0.5"}, 2.5: {"label": "2.5"}, 5: {"label": "5"}},
                         tooltip={"placement": "bottom"},
                     ),
-                    html.Div([
-                        html.Span("OVERLAP (%)", style=LABEL_STYLE),
-                        html.Abbr(" ℹ", title="How much each laser pass overlaps the previous one (higher = denser coverage)",
-                                  style={"color": COLORS["accent"], "cursor": "help", "textDecoration": "none", "fontSize": "14px"}),
-                    ], style={"display": "flex", "alignItems": "center"}),
+                    _info_tip("OVERLAP (%)", "How much each laser pass overlaps the previous one. Higher overlap = denser coverage but slower processing. 50% is typical."),
                     dcc.Slider(
                         id="scan-overlap", min=0, max=90, step=5, value=50,
                         marks={0: {"label": "0"}, 50: {"label": "50"}, 90: {"label": "90"}},
@@ -387,7 +533,7 @@ def _build_xy_tab():
             # Right: Visualization
             html.Div([
                 html.Div([
-                    html.H3([_icon("layers"), " 3D Laboratory Layout"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+                    html.H3([_icon("layers"), " Scan Path Preview"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
                     dcc.Loading(
                         type="circle",
                         color=COLORS["primary"],
@@ -410,7 +556,12 @@ def _build_xy_tab():
 
         # ── G-Code Output ────────────────
         html.Div([
-            html.H3([_icon("file-text"), " Generated G-Code"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.H3([_icon("file-text"), " Generated G-Code"], style={"margin": "0 0 4px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.P(
+                "G-Code is the standard language for CNC machines. These instructions tell the real X-Y table "
+                "exactly where to move and at what speed. You can copy this output and send it to a motion controller.",
+                style={"fontSize": "11px", "color": COLORS["muted"], "margin": "0 0 8px", "lineHeight": "1.5"},
+            ),
             dcc.Loading(
                 type="circle",
                 color=COLORS["primary"],
@@ -437,10 +588,15 @@ def _build_xy_tab():
 def _build_laser_tab():
     """Laser control panel."""
     return html.Div([
+        _tab_intro(
+            "Control the 1 kW fiber laser source (IPG YLR-1000). "
+            "Workflow: Set Power (drag slider + click Set Power) → Arm (prepares laser) → Fire (emits beam). "
+            "The laser will not fire unless all safety interlocks are locked."
+        ),
         html.Div([
             html.Div([
                 html.H3([_icon("sliders"), " Laser Control"], style={"margin": "0 0 16px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
-                html.Div("POWER (W)", style=LABEL_STYLE),
+                _info_tip("POWER (W)", "Drag the slider to select power, then click 'Set Power' to apply. Moving the slider alone does NOT change the laser output."),
                 dcc.Slider(
                     id="laser-power", min=0, max=1000, step=10, value=0,
                     marks={
@@ -458,6 +614,11 @@ def _build_laser_tab():
                         _btn("Fire", "btn-fire", "danger", "zap"),
                         _btn("Stop", "btn-stop-laser", "primary", "stop"),
                     ],
+                ),
+                html.P(
+                    "Set Power = apply the slider value. Arm = prepare for firing (requires interlocks). "
+                    "Fire = emit the laser beam. Stop = immediately cut emission.",
+                    style={"fontSize": "11px", "color": COLORS["muted"], "marginTop": "10px", "lineHeight": "1.5"},
                 ),
             ], style=CARD_STYLE),
 
@@ -500,10 +661,15 @@ def _build_laser_tab():
 
         # ── Gas System ───────────────────
         html.Div([
-            html.H3([_icon("wind"), " Shielding Gas (Argon)"], style={"margin": "0 0 16px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.H3([_icon("wind"), " Shielding Gas (Argon)"], style={"margin": "0 0 4px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.P(
+                "Argon shielding gas prevents oxidation during laser processing. "
+                "Purge the chamber before firing to flush out oxygen.",
+                style={"fontSize": "11px", "color": COLORS["muted"], "margin": "0 0 12px", "lineHeight": "1.5"},
+            ),
             html.Div([
                 html.Div([
-                    html.Div("FLOW RATE (L/min)", style=LABEL_STYLE),
+                    _info_tip("FLOW RATE (L/min)", "Argon flow rate into the processing chamber. 15 L/min is recommended for purging. Set to 0 to stop gas flow."),
                     dcc.Slider(
                         id="gas-flow", min=0, max=20, step=0.5, value=0,
                         marks={0: {"label": "0"}, 5: {"label": "5"},
@@ -516,16 +682,27 @@ def _build_laser_tab():
                         _btn("Purge", "btn-purge", "warning", "refresh-cw"),
                         _btn("Stop Gas", "btn-stop-gas", "primary", "slash"),
                     ], style={"marginTop": "12px"}),
+                    html.P(
+                        "Set Flow = apply the slider value. "
+                        "Purge = flush the chamber with Argon at 15 L/min to remove oxygen. "
+                        "Stop Gas = close the gas supply.",
+                        style={"fontSize": "11px", "color": COLORS["muted"], "marginTop": "10px", "lineHeight": "1.5"},
+                    ),
                 ], style={"flex": "1"}),
                 html.Div([
                     html.Div(
                         style={"display": "flex", "flexWrap": "wrap", "gap": "12px"},
                         children=[
                             _indicator("Gas State", "gas-state"),
-                            _indicator("O₂ (ppm)", "gas-o2"),
+                            _indicator("O\u2082 (ppm)", "gas-o2"),
                             _indicator("Supply (%)", "gas-supply"),
                             _indicator("Atmosphere", "gas-safe"),
                         ],
+                    ),
+                    html.P(
+                        "O\u2082 (ppm) = oxygen level in parts per million. Must be below 100 ppm before firing. "
+                        "Atmosphere = SAFE when O\u2082 is low enough for laser processing.",
+                        style={"fontSize": "11px", "color": COLORS["muted"], "marginTop": "12px", "lineHeight": "1.5"},
                     ),
                 ], style={"flex": "1"}),
             ], style={"display": "flex", "gap": "24px", "flexWrap": "wrap"}),
@@ -536,6 +713,11 @@ def _build_laser_tab():
 def _build_safety_tab():
     """Safety & interlock status panel."""
     return html.Div([
+        _tab_intro(
+            "Safety interlocks are physical locks that prevent the laser from firing when the lab is not secure. "
+            "Both the door and the processing chamber must be LOCKED before the laser can be armed. "
+            "The E-Stop (Emergency Stop) immediately cuts all power to the laser and gas systems."
+        ),
         html.Div([
             html.H3([_icon("shield-lock"), " Safety Interlocks"], style={"margin": "0 0 16px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
             html.Div([
@@ -544,14 +726,20 @@ def _build_safety_tab():
                         _btn("Lock Door", "btn-lock-door", "success", "lock"),
                         _btn("Unlock Door", "btn-unlock-door", "warning", "unlock"),
                     ]),
+                    html.P("Door interlock: prevents laser when lab door is open.",
+                           style={"fontSize": "11px", "color": COLORS["muted"], "margin": "4px 0 8px"}),
                     html.Div([
                         _btn("Lock Chamber", "btn-lock-chamber", "success", "lock"),
                         _btn("Unlock Chamber", "btn-unlock-chamber", "warning", "unlock"),
-                    ], style={"marginTop": "8px"}),
+                    ]),
+                    html.P("Chamber interlock: prevents laser when processing chamber lid is open.",
+                           style={"fontSize": "11px", "color": COLORS["muted"], "margin": "4px 0 8px"}),
                     html.Div([
                         _btn("E-STOP", "btn-estop", "danger", "octagon"),
                         _btn("Reset E-Stop", "btn-reset-estop", "primary", "refresh-cw"),
-                    ], style={"marginTop": "8px"}),
+                    ]),
+                    html.P("Emergency Stop: immediately shuts down all systems. Must be reset to resume.",
+                           style={"fontSize": "11px", "color": COLORS["muted"], "margin": "4px 0 0"}),
                 ], style={"flex": "1"}),
                 html.Div([
                     html.Div(
@@ -568,10 +756,12 @@ def _build_safety_tab():
             ], style={"display": "flex", "gap": "24px", "flexWrap": "wrap"}),
         ], style=CARD_STYLE),
 
-        # ── Audit Log ────────────────────
+        # ── Activity Log ────────────────────
         html.Div([
-            html.H3([_icon("file-text"), " Audit Log (STRIDE: Repudiation Defense)"],
-                     style={"margin": "0 0 12px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.H3([_icon("file-text"), " Activity Log"],
+                     style={"margin": "0 0 4px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.P("All actions are recorded for traceability. This log shows every button press, state change, and safety event.",
+                   style={"fontSize": "11px", "color": COLORS["muted"], "margin": "0 0 8px", "lineHeight": "1.5"}),
             html.Div(
                 id="audit-log",
                 style={
@@ -589,24 +779,16 @@ def _build_safety_tab():
     ])
 
 
-def _build_3d_tab():
-    """3D interactive lab layout viewer."""
-    return html.Div([
-        html.Div([
-            html.H3([_icon("layers"), " 3D Laboratory Layout"], style={"margin": "0 0 8px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
-            html.P("Interactive 3D model — drag to rotate, scroll to zoom",
-                    style={"color": COLORS["muted"], "fontSize": "12px", "margin": "0 0 8px"}),
-            dcc.Graph(
-                id="lab-3d",
-                figure=build_3d_lab_figure(),
-                style={"height": "550px"},
-            ),
-        ], style=CARD_STYLE),
-    ])
+
 
 
 def _build_cost_tab():
     """Equipment cost calculator."""
+    tab_intro = _tab_intro(
+        "Bill of materials for building this laser treatment laboratory. "
+        "Shows every piece of equipment needed with real-world European market pricing. "
+        "This is the budget your team would present to fund the lab construction."
+    )
     catalog = cost_calc.get_catalog()
     categories = cost_calc.get_categories()
     total = cost_calc.calculate_total(catalog)
@@ -664,6 +846,7 @@ def _build_cost_tab():
         )
 
     return html.Div([
+        tab_intro,
         # ── Summary Card ─────────────────
         html.Div([
             html.H3([_icon("briefcase"), " Budget Summary"], style={"margin": "0 0 16px", "fontSize": "16px", "display": "flex", "alignItems": "center", "gap": "8px"}),
@@ -805,6 +988,30 @@ def _build_cost_chart():
     return fig
 
 
+def _build_3d_tab():
+    """3D visualization tab — lazy-loaded for performance."""
+    return html.Div([
+        _tab_intro(
+            "Interactive 3D model of the laboratory layout. Shows the optical table, "
+            "laser head, processing chamber, X-Y stages, gas tanks, and safety enclosure. "
+            "The chamber position updates live when scans are running."
+        ),
+        html.Div([
+            html.H3([_icon("layers"), " Live 3D View"],
+                     style={"margin": "0 0 4px", "fontSize": "16px",
+                            "display": "flex", "alignItems": "center", "gap": "8px"}),
+            html.P("Drag to rotate · Scroll to zoom · Double-click to reset",
+                   style={"color": COLORS["muted"], "fontSize": "12px", "margin": "0 0 8px"}),
+            dcc.Graph(
+                id="lab-3d",
+                figure=build_3d_lab_figure(),
+                style={"height": "650px", "width": "100%"},
+                config={"displayModeBar": True, "scrollZoom": True},
+            ),
+        ], style=CARD_STYLE),
+    ])
+
+
 # ══════════════════════════════════════════════════════════════════════
 #                          CALLBACKS
 # ══════════════════════════════════════════════════════════════════════
@@ -819,8 +1026,8 @@ def render_tab(tab):
         "tab-xy": _build_xy_tab,
         "tab-laser": _build_laser_tab,
         "tab-safety": _build_safety_tab,
-        "tab-3d": _build_3d_tab,
         "tab-cost": _build_cost_tab,
+        "tab-3d": _build_3d_tab,
     }
     return tab_builders.get(tab, _build_xy_tab)()
 
@@ -1081,23 +1288,26 @@ def handle_gas_actions(set_clicks, purge_clicks, stop_clicks, flow):
         Input("btn-reset-estop", "n_clicks"),
         Input("refresh-interval", "n_intervals"),
     ],
-
+    State("main-tabs", "value"),
 )
-def handle_safety(ld, ud, lc, uc, es, re, interval):
+def handle_safety(ld, ud, lc, uc, es, re, interval, active_tab):
     """Handle safety button clicks and refresh audit log."""
     triggered = callback_context.triggered[0]["prop_id"]
+    # Skip heavy audit-log rebuild on interval tick if safety tab isn't active
+    if triggered == "refresh-interval.n_intervals" and active_tab != "tab-safety":
+        raise dash.exceptions.PreventUpdate
     try:
-        if "btn-lock-door" in triggered:
+        if triggered == "btn-lock-door.n_clicks":
             lab.set_door_interlock(True)
-        elif "btn-unlock-door" in triggered:
+        elif triggered == "btn-unlock-door.n_clicks":
             lab.set_door_interlock(False)
-        elif "btn-lock-chamber" in triggered:
+        elif triggered == "btn-lock-chamber.n_clicks":
             lab.set_chamber_interlock(True)
-        elif "btn-unlock-chamber" in triggered:
+        elif triggered == "btn-unlock-chamber.n_clicks":
             lab.set_chamber_interlock(False)
-        elif "btn-estop" in triggered:
+        elif triggered == "btn-estop.n_clicks":
             lab.trigger_e_stop()
-        elif "btn-reset-estop" in triggered:
+        elif triggered == "btn-reset-estop.n_clicks":
             lab.reset_e_stop()
     except Exception:
         # Safety audit logging catches these internally, 
@@ -1107,12 +1317,8 @@ def handle_safety(ld, ud, lc, uc, es, re, interval):
     status = lab.get_full_status()
     ss = status["safety"]
 
-    def _safety_badge(value, good_label, bad_label):
-        # Helper to DRY up status badges with icons
-        is_good = value in ("LOCKED", False, True)
-        if isinstance(value, bool):  # e.g. e_stop=True is bad
-            is_good = not value
-            
+    def _safety_badge(is_good, good_label, bad_label):
+        """Helper to DRY up status badges with icons."""
         color = COLORS["success"] if is_good else COLORS["danger"]
         icon_name = "lock" if "LOCKED" in good_label else ("shield-check" if is_good else "shield-alert")
         if "OPEN" in bad_label: icon_name = "unlock" if not is_good else "lock"
@@ -1169,26 +1375,52 @@ def handle_safety(ld, ud, lc, uc, es, re, interval):
     return door, chamber, estop, warning, all_clear, log_entries
 
 
+# ── Shared Status Store (single source of truth) ────────────────────
+
+@app.callback(
+    Output("status-store", "data"),
+    Input("refresh-interval", "n_intervals"),
+)
+def refresh_status_store(n):
+    """Poll lab status once per interval — feeds both status bar and 3D."""
+    return lab.get_full_status()
+
+
 # ── Status Bar Callback ──────────────────────────────────────────────
 
 @app.callback(
     Output("status-bar", "children"),
-    Input("refresh-interval", "n_intervals"),
+    Input("status-store", "data"),
 )
-def update_status_bar(n):
-    """Refresh the bottom status bar."""
-    status = lab.get_full_status()
+def update_status_bar(status):
+    """Refresh the bottom status bar from shared store."""
+    if not status:
+        raise dash.exceptions.PreventUpdate
     t = status["table"]
     l = status["laser"]
     g = status["gas"]
     s = status["safety"]
-    all_ok = "✅" if s["all_clear"] else "❌"
+    all_ok = "\u2705" if s["all_clear"] else "\u274c"
     return [
         html.Span(f"Table: {t['state']} | X={t['position_x']:.1f} Y={t['position_y']:.1f}"),
         html.Span(f"Laser: {l['state']} | {l['power_w']:.0f}W"),
         html.Span(f"Gas: {g['state']} | {g['flow_l_min']:.1f} L/min"),
         html.Span(f"Safety: {all_ok}"),
     ]
+
+
+# ── Banner Dismiss Callback ─────────────────────────────────────────
+
+@app.callback(
+    Output("lab-onboarding-banner", "style"),
+    Input("btn-dismiss-banner", "n_clicks"),
+    prevent_initial_call=True,
+)
+def dismiss_banner(n_clicks):
+    """Hide the onboarding banner when dismissed."""
+    if n_clicks:
+        return {**BANNER_STYLE, "display": "none"}
+    return BANNER_STYLE
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1269,26 +1501,32 @@ def _build_scan_figure(xs, ys, pattern):
 
 @app.callback(
     Output("lab-3d", "figure"),
-    Input("refresh-interval", "n_intervals"),
-    State("main-tabs", "value"),
+    Input("3d-interval", "n_intervals"),
+    [
+        State("main-tabs", "value"),
+        State("status-store", "data"),
+    ],
+    prevent_initial_call=True,
 )
-def update_3d_view(n, tab):
-    """Update the 3D view with current lab state."""
-    # Performance optimization: only update if on the 3D tab
-    if tab != "tab-3d":
-        return dash.no_update
-        
-    status = lab.get_full_status()
+def update_3d_view(n, active_tab, status):
+    """Update the 3D view only when the 3D tab is active (3s interval)."""
+    if active_tab != "tab-3d" or not status:
+        raise dash.exceptions.PreventUpdate
     t = status["table"]
     l = status["laser"]
-    
-    # Check if laser is effectively "active" (firing)
-    is_firing = l["state"] == "FIRING"
-    
+    g = status["gas"]
+    s = status["safety"]
     return build_3d_lab_figure(
         pos_x_mm=t["position_x"],
         pos_y_mm=t["position_y"],
-        laser_active=is_firing
+        laser_active=l["state"] == "FIRING",
+        laser_power_pct=l["power_pct"],
+        gas_flowing=g["state"] == "FLOWING",
+        gas_flow_rate=g["flow_l_min"],
+        gas_purging=g["state"] == "PURGING",
+        door_locked=s["door"] == "LOCKED",
+        chamber_locked=s["chamber"] == "LOCKED",
+        e_stop=s["e_stop"],
     )
 
 

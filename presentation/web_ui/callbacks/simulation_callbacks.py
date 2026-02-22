@@ -19,9 +19,12 @@ from infrastructure.logging.audit_logger import AuditLogger
 from application.simulation_use_case import SimulationUseCase
 
 from ..services.material_service import MATERIALS
-from ..constants import SECTION_TITLE_STYLE, METRIC_LABEL, METRIC_VALUE
+from ..constants import (
+    SECTION_TITLE_STYLE, METRIC_LABEL, METRIC_VALUE,
+    WARNING_STYLE, DANGER_STYLE, SUCCESS_HINT_STYLE, INTERPRETATION_STYLE,
+)
 from ..components.plot_builders import (
-    empty_3d_figure, empty_2d_figure, build_3d_surface, 
+    empty_3d_figure, empty_2d_figure, build_3d_surface,
     build_xz_section, build_yz_section, build_fluence_map, build_depth_profile
 )
 
@@ -50,6 +53,7 @@ def update_res_label(val):
     Output("loading-target", "children"),
     Output("status-badge", "children"),
     Output("status-badge", "style"),
+    Output("run-btn", "className"),
     Input("run-btn", "n_clicks"),
     State("material-select", "value"),
     State("power-slider", "value"),
@@ -63,14 +67,16 @@ def update_res_label(val):
 )
 def run_simulation(n_clicks, mat_key, power, spot, beam, speed, motion, solver_type, resolution):
     if not n_clicks:
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update
 
     try:
-        # Check if material key exists (custom materials might need reload but here we access shared dict)
         if mat_key not in MATERIALS:
-             # Try to reload if missing (optional safety)
-             return no_update, "", "Error: Material not found", {"background": "#ff6464", "color": "white"}
-             
+             return no_update, "", "Error: Material not found", {
+                 "background": "#ff6464", "color": "white",
+                 "padding": "6px 16px", "borderRadius": "20px",
+                 "fontSize": "12px", "fontWeight": "600",
+             }, ""
+
         material = MATERIALS[mat_key]["obj"]
 
         laser_source = GaussianLaserSource() if beam == "gaussian" else TopHatLaserSource()
@@ -86,8 +92,6 @@ def run_simulation(n_clicks, mat_key, power, spot, beam, speed, motion, solver_t
             "linear": LinearGenerator(),
         }
 
-        # Ensure output directory exists (relative to CWD, which should be project root)
-        # But we are running from project root, so "output" is fine.
         os.makedirs("output", exist_ok=True)
         audit = AuditLogger(log_dir="output")
 
@@ -134,7 +138,7 @@ def run_simulation(n_clicks, mat_key, power, spot, beam, speed, motion, solver_t
             resolution=res_m,
         )
 
-        # Serialize for storage (convert numpy arrays)
+        # Serialize for storage
         data = {
             "temperature_field": result.temperature_field,
             "fluence_map": result.fluence_map,
@@ -162,7 +166,8 @@ def run_simulation(n_clicks, mat_key, power, spot, beam, speed, motion, solver_t
             "fontWeight": "600",
         }
 
-        return data, "", f"✓ Done ({result.duration_seconds:.1f}s)", badge_style
+        # Remove pulse after first successful run
+        return data, "", f"Done ({result.duration_seconds:.1f}s)", badge_style, ""
 
     except Exception as exc:
         badge_style = {
@@ -173,7 +178,13 @@ def run_simulation(n_clicks, mat_key, power, spot, beam, speed, motion, solver_t
             "fontSize": "12px",
             "fontWeight": "600",
         }
-        return no_update, "", f"Error: {str(exc)[:60]}", badge_style
+        return no_update, "", f"Error: {str(exc)[:60]}", badge_style, ""
+
+
+# ---- Helper: CSS icon element ----
+def _icon(icon_class, symbol):
+    """Create a small CSS-styled icon circle."""
+    return html.Span(symbol, className=icon_class)
 
 
 # ---- Update Results Card ----
@@ -188,36 +199,106 @@ def update_results(data):
             html.Div("Run a simulation to see results.", style={"color": "#506080", "fontSize": "13px"}),
         ]
 
-    def metric(label, value):
-        return html.Div(
-            style={"marginBottom": "10px"},
-            children=[
-                html.Div(label, style=METRIC_LABEL),
-                html.Div(value, style=METRIC_VALUE),
-            ],
-        )
+    def metric(label, value, interpretation=None):
+        children = [
+            html.Div(label, style=METRIC_LABEL),
+            html.Div(value, style=METRIC_VALUE),
+        ]
+        if interpretation:
+            children.append(html.Div(interpretation, style=INTERPRETATION_STYLE))
+        return html.Div(style={"marginBottom": "10px"}, children=children)
 
     items = [html.Div("Results", style=SECTION_TITLE_STYLE)]
-    items.append(metric("Peak Temperature", f"{data['peak_temperature_celsius']:.1f} °C"))
-    items.append(metric("Peak Fluence", f"{data['peak_fluence_j_per_m2']:.2e} J/m²"))
-    items.append(metric("Total Energy", f"{data['total_energy_j']:.4f} J"))
+
+    peak_t = data["peak_temperature_celsius"]
+    t_melt = data.get("t_melt", 0)
+    t_vap = data.get("t_vaporization", 0)
+
+    # Peak Temperature with context
+    if t_melt and peak_t > t_melt:
+        temp_hint = f"Exceeds melting point ({t_melt:.0f} C)"
+    elif t_melt:
+        temp_hint = f"{peak_t / t_melt * 100:.0f}% of melting point ({t_melt:.0f} C)"
+    else:
+        temp_hint = None
+    items.append(metric("Peak Temperature", f"{peak_t:.1f} C", temp_hint))
+
+    items.append(metric(
+        "Peak Fluence",
+        f"{data['peak_fluence_j_per_m2']:.2e} J/m2",
+        "Energy density at the most exposed point",
+    ))
+
+    items.append(metric(
+        "Total Energy",
+        f"{data['total_energy_j']:.4f} J",
+        "Total energy delivered to the surface",
+    ))
 
     if data.get("melt_depth_m") is not None:
-        items.append(metric("Melt Depth", f"{data['melt_depth_m']*1e6:.1f} µm"))
+        md = data["melt_depth_m"] * 1e6
+        items.append(metric("Melt Depth", f"{md:.1f} um", "Depth at which melting occurs"))
     else:
-        items.append(metric("Melt Depth", "None"))
+        items.append(metric("Melt Depth", "None", "No melting detected at this configuration"))
 
     if data.get("vaporization_depth_m") is not None:
-        items.append(metric("Vaporization Depth", f"{data['vaporization_depth_m']*1e6:.1f} µm"))
+        vd = data["vaporization_depth_m"] * 1e6
+        items.append(metric("Vaporization Depth", f"{vd:.1f} um"))
 
     items.append(metric("Solver Time", f"{data['duration_seconds']:.2f} s"))
 
+    # ---- Warnings / Assessments ----
+    if t_vap and peak_t > t_vap:
+        items.append(html.Div(style=DANGER_STYLE, children=[
+            _icon("icon-danger", "!"),
+            html.Span("Vaporization risk — temperature exceeds vaporization point. Consider reducing power or increasing scan speed."),
+        ]))
+    elif t_melt and peak_t > t_melt:
+        items.append(html.Div(style=WARNING_STYLE, children=[
+            _icon("icon-warning", "!"),
+            html.Span(f"Material will melt — peak temperature exceeds T_melt ({t_melt:.0f} C). Melt depth shown above."),
+        ]))
+    elif t_melt and peak_t > t_melt * 0.8:
+        items.append(html.Div(style=WARNING_STYLE, children=[
+            _icon("icon-warning", "~"),
+            html.Span(f"Approaching melt threshold — {peak_t / t_melt * 100:.0f}% of melting point."),
+        ]))
+    else:
+        items.append(html.Div(style=SUCCESS_HINT_STYLE, children=[
+            _icon("icon-success", "ok"),
+            html.Span("Safe operating range — no melting or vaporization detected."),
+        ]))
+
+    # Summary assessment
+    if peak_t < 200:
+        assessment = "Minimal thermal effect. Consider increasing power."
+    elif t_melt and peak_t < t_melt * 0.5:
+        assessment = "Gentle treatment — surface heating without structural changes."
+    elif t_melt and peak_t < t_melt:
+        assessment = "Moderate treatment — significant heating, potential for hardening."
+    elif t_vap and peak_t < t_vap:
+        assessment = "Aggressive treatment — melting occurs, suitable for surface modification."
+    else:
+        assessment = "Extreme treatment — vaporization detected, may cause material removal."
+
     items.append(html.Div(
-        style={"marginTop": "12px", "padding": "8px 12px", "background": "rgba(255,255,255,0.03)", "borderRadius": "8px"},
+        style={
+            "marginTop": "12px",
+            "padding": "10px 12px",
+            "background": "rgba(255,255,255,0.03)",
+            "borderRadius": "8px",
+        },
         children=[
-            html.Span(data["material_name"], style={"color": "#7088b0", "fontSize": "11px"}),
-            html.Span(" · ", style={"color": "#354060"}),
-            html.Span(data["solver_name"], style={"color": "#607898", "fontSize": "11px"}),
+            html.Div("Assessment", style={**METRIC_LABEL, "marginBottom": "4px"}),
+            html.Div(assessment, style={"color": "#a0b8e0", "fontSize": "12px", "lineHeight": "1.5"}),
+            html.Div(
+                style={"marginTop": "8px"},
+                children=[
+                    html.Span(data["material_name"], style={"color": "#7088b0", "fontSize": "11px"}),
+                    html.Span(" · ", style={"color": "#354060"}),
+                    html.Span(data["solver_name"], style={"color": "#607898", "fontSize": "11px"}),
+                ],
+            ),
         ],
     ))
 

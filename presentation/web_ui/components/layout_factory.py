@@ -2,8 +2,9 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from ..constants import (
-    CARD_STYLE, SECTION_TITLE_STYLE, SLIDER_LABEL_STYLE, 
-    VALUE_STYLE, RESULT_CARD_STYLE
+    CARD_STYLE, SECTION_TITLE_STYLE, SLIDER_LABEL_STYLE,
+    VALUE_STYLE, RESULT_CARD_STYLE, TOOLTIP_ICON_STYLE,
+    PRESET_BTN_STYLE, BANNER_STYLE, BANNER_STEP_STYLE, BANNER_STEP_NUMBER,
 )
 from ..services.material_service import MATERIALS, build_material_options
 from .plot_builders import empty_3d_figure
@@ -21,6 +22,146 @@ if DEFAULT_MATERIAL not in MATERIALS:
     else:
         DEFAULT_MATERIAL = next(iter(MATERIALS)) if MATERIALS else None
 
+
+# ============================================================================
+# Helper: Label with tooltip info icon
+# ============================================================================
+
+def _label_with_tip(text, tip_id, tooltip_text, style=None):
+    """Create a label with an info icon that has a Bootstrap tooltip."""
+    label_style = style or SLIDER_LABEL_STYLE
+    return html.Div(
+        style={"display": "flex", "alignItems": "center", "gap": "0"},
+        children=[
+            html.Div(text, style=label_style),
+            html.Span(
+                "i",
+                id=tip_id,
+                className="info-icon",
+                style=TOOLTIP_ICON_STYLE,
+            ),
+            dbc.Tooltip(
+                tooltip_text,
+                target=tip_id,
+                placement="right",
+                style={
+                    "fontSize": "12px",
+                    "maxWidth": "260px",
+                    "lineHeight": "1.5",
+                },
+            ),
+        ],
+    )
+
+
+# ============================================================================
+# Helper: Getting Started Banner
+# ============================================================================
+
+def _getting_started_banner():
+    """Build the collapsible Getting Started guide."""
+    return html.Div(
+        id="getting-started-banner",
+        className="getting-started-banner",
+        style=BANNER_STYLE,
+        children=[
+            html.Div(
+                style={"flex": "1"},
+                children=[
+                    html.Div(
+                        "Getting Started",
+                        style={
+                            "color": "#e0e8ff",
+                            "fontSize": "14px",
+                            "fontWeight": "700",
+                            "marginBottom": "10px",
+                        },
+                    ),
+                    html.Div(
+                        style={"display": "flex", "flexWrap": "wrap", "gap": "12px"},
+                        children=[
+                            html.Div(style=BANNER_STEP_STYLE, children=[
+                                html.Span("1", style=BANNER_STEP_NUMBER),
+                                html.Span("Pick a material"),
+                            ]),
+                            html.Div(style=BANNER_STEP_STYLE, children=[
+                                html.Span("2", style=BANNER_STEP_NUMBER),
+                                html.Span("Configure laser & motion"),
+                            ]),
+                            html.Div(style=BANNER_STEP_STYLE, children=[
+                                html.Span("3", style=BANNER_STEP_NUMBER),
+                                html.Span("Click Run Simulation"),
+                            ]),
+                            html.Div(style=BANNER_STEP_STYLE, children=[
+                                html.Span("4", style=BANNER_STEP_NUMBER),
+                                html.Span("Explore results in each tab"),
+                            ]),
+                        ],
+                    ),
+                ],
+            ),
+            html.Button(
+                "Dismiss",
+                id="dismiss-banner-btn",
+                n_clicks=0,
+                style={
+                    "background": "rgba(255,255,255,0.05)",
+                    "border": "1px solid rgba(255,255,255,0.1)",
+                    "borderRadius": "6px",
+                    "color": "#607898",
+                    "fontSize": "11px",
+                    "padding": "4px 12px",
+                    "cursor": "pointer",
+                    "whiteSpace": "nowrap",
+                    "alignSelf": "flex-start",
+                },
+            ),
+        ],
+    )
+
+
+# ============================================================================
+# Helper: Preset Buttons Card
+# ============================================================================
+
+def _preset_card():
+    """Build the Quick Start Presets card."""
+    presets = [
+        ("preset-gentle", "Gentle\nSurface"),
+        ("preset-standard", "Standard\nTreatment"),
+        ("preset-deep", "Deep\nPenetration"),
+        ("preset-wide", "Wide Area\nScan"),
+    ]
+    return html.Div(style=CARD_STYLE, children=[
+        html.Div(
+            style={"display": "flex", "alignItems": "center", "justifyContent": "space-between"},
+            children=[
+                html.Div("Quick Start", style=SECTION_TITLE_STYLE),
+                html.Span(
+                    "Pick a preset to auto-fill all parameters",
+                    style={"color": "#506080", "fontSize": "10px"},
+                ),
+            ],
+        ),
+        html.Div(
+            style={"display": "flex", "gap": "6px"},
+            children=[
+                html.Button(
+                    label,
+                    id=btn_id,
+                    n_clicks=0,
+                    className="preset-btn",
+                    style={**PRESET_BTN_STYLE, "whiteSpace": "pre-line"},
+                )
+                for btn_id, label in presets
+            ],
+        ),
+    ])
+
+
+# ============================================================================
+# Main Layout
+# ============================================================================
 
 def get_layout():
     """Construct the main Dash layout."""
@@ -83,12 +224,15 @@ def get_layout():
                 ],
             ),
 
+            # ---- Getting Started Banner ----
+            _getting_started_banner(),
+
             # ---- Main Grid ----
             html.Div(
                 className="sim-main-grid",
                 style={
                     "display": "grid",
-                    "gridTemplateColumns": "320px 1fr",
+                    "gridTemplateColumns": "340px 1fr",
                     "gap": "20px",
                     "padding": "20px 24px",
                     "maxHeight": "calc(100vh - 90px)",
@@ -112,10 +256,28 @@ def get_layout():
                                 className="mobile-close-btn",
                                 n_clicks=0,
                             ),
+
+                            # Presets Card
+                            _preset_card(),
+
                             # Material Card
                             html.Div(style=CARD_STYLE, children=[
                                 html.Div([
                                     html.Span("Material", style=SECTION_TITLE_STYLE),
+                                    html.Span(
+                                        "i",
+                                        id="tip-material-icon",
+                                        className="info-icon",
+                                        style=TOOLTIP_ICON_STYLE,
+                                    ),
+                                    dbc.Tooltip(
+                                        "Choose the material being laser-treated. "
+                                        "AI-discovered materials have optimized compositions for HVOF coatings. "
+                                        "Standard materials are common engineering alloys.",
+                                        target="tip-material-icon",
+                                        placement="right",
+                                        style={"fontSize": "12px", "maxWidth": "260px"},
+                                    ),
                                     html.Span(
                                         f"{len(MATERIALS)} loaded",
                                         style={"color": "#405070", "fontSize": "11px", "float": "right", "marginTop": "2px"},
@@ -167,7 +329,11 @@ def get_layout():
                             html.Div(style=CARD_STYLE, children=[
                                 html.Div("Laser", style=SECTION_TITLE_STYLE),
 
-                                html.Div("Power", style=SLIDER_LABEL_STYLE),
+                                _label_with_tip(
+                                    "Power", "tip-power",
+                                    "Laser power in Watts. Higher power deposits more energy, "
+                                    "causing deeper heating. Too high can vaporize the material.",
+                                ),
                                 html.Div(id="power-value", children="500 W", style=VALUE_STYLE),
                                 dcc.Slider(
                                     id="power-slider", min=50, max=5000, step=50, value=500,
@@ -175,7 +341,12 @@ def get_layout():
                                     tooltip={"placement": "bottom"},
                                 ),
 
-                                html.Div("Spot Radius", style=SLIDER_LABEL_STYLE),
+                                _label_with_tip(
+                                    "Spot Radius", "tip-spot",
+                                    "Laser beam radius in micrometers. Smaller spots concentrate "
+                                    "energy into a tiny area (higher intensity), while larger spots "
+                                    "spread the energy over a wider area.",
+                                ),
                                 html.Div(id="spot-value", children="50 µm", style=VALUE_STYLE),
                                 dcc.Slider(
                                     id="spot-slider", min=10, max=500, step=5, value=50,
@@ -183,7 +354,12 @@ def get_layout():
                                     tooltip={"placement": "bottom"},
                                 ),
 
-                                html.Div("Beam Profile", style=SLIDER_LABEL_STYLE),
+                                _label_with_tip(
+                                    "Beam Profile", "tip-beam",
+                                    "Gaussian = energy is concentrated at the center of the beam "
+                                    "(bell curve shape). Top-Hat = energy is uniformly distributed "
+                                    "across the entire beam spot.",
+                                ),
                                 dbc.RadioItems(
                                     id="beam-select",
                                     options=[
@@ -200,7 +376,12 @@ def get_layout():
                             html.Div(style=CARD_STYLE, children=[
                                 html.Div("Motion", style=SECTION_TITLE_STYLE),
 
-                                html.Div("Scan Speed", style=SLIDER_LABEL_STYLE),
+                                _label_with_tip(
+                                    "Scan Speed", "tip-speed",
+                                    "How fast the laser moves across the surface (mm/s). "
+                                    "Slower speed = more energy deposited at each point. "
+                                    "Faster speed = shorter dwell time, less heating.",
+                                ),
                                 html.Div(id="speed-value", children="100 mm/s", style=VALUE_STYLE),
                                 dcc.Slider(
                                     id="speed-slider", min=10, max=1000, step=10, value=100,
@@ -208,7 +389,12 @@ def get_layout():
                                     tooltip={"placement": "bottom"},
                                 ),
 
-                                html.Div("Pattern", style=SLIDER_LABEL_STYLE),
+                                _label_with_tip(
+                                    "Pattern", "tip-motion",
+                                    "How the laser scans the surface. Raster = back-and-forth "
+                                    "zig-zag lines covering the area. Spiral = inward/outward "
+                                    "circular path. Linear = single straight pass.",
+                                ),
                                 dbc.RadioItems(
                                     id="motion-select",
                                     options=[
@@ -224,7 +410,15 @@ def get_layout():
 
                             # Solver Card
                             html.Div(style=CARD_STYLE, children=[
-                                html.Div("Solver", style=SECTION_TITLE_STYLE),
+                                _label_with_tip(
+                                    "Solver", "tip-solver",
+                                    "3D FDM = Finite Difference Method, accurate full 3D simulation "
+                                    "but slower to compute. Use for final results. "
+                                    "Analytical = fast 1D approximation, "
+                                    "use for quick parameter exploration. Start with Analytical, "
+                                    "then switch to 3D FDM for validation.",
+                                    style=SECTION_TITLE_STYLE,
+                                ),
 
                                 dbc.RadioItems(
                                     id="solver-select",
@@ -236,7 +430,12 @@ def get_layout():
                                     className="mt-1",
                                 ),
 
-                                html.Div("Resolution", style={**SLIDER_LABEL_STYLE, "marginTop": "12px"}),
+                                _label_with_tip(
+                                    "Resolution", "tip-res",
+                                    "Grid cell size in micrometers. Smaller values = finer grid = "
+                                    "more accurate results but significantly longer compute time. "
+                                    "200 µm is a good balance.",
+                                ),
                                 html.Div(id="res-value", children="200 µm", style=VALUE_STYLE),
                                 dcc.Slider(
                                     id="res-slider", min=100, max=500, step=25, value=200,
@@ -247,9 +446,10 @@ def get_layout():
 
                             # Run Button
                             html.Button(
-                                "▶  Run Simulation",
+                                "Run Simulation",
                                 id="run-btn",
                                 n_clicks=0,
+                                className="run-btn-pulse",
                                 style={
                                     "width": "100%",
                                     "padding": "14px",
@@ -293,12 +493,39 @@ def get_layout():
                                 active_tab="tab-3d",
                                 className="mb-0",
                                 children=[
-                                    dbc.Tab(label="3D", tab_id="tab-3d"),
-                                    dbc.Tab(label="XZ", tab_id="tab-xz"),
-                                    dbc.Tab(label="YZ", tab_id="tab-yz"),
-                                    dbc.Tab(label="Fluence", tab_id="tab-fluence"),
-                                    dbc.Tab(label="Depth", tab_id="tab-depth"),
+                                    dbc.Tab(
+                                        label="3D Surface",
+                                        tab_id="tab-3d",
+                                    ),
+                                    dbc.Tab(
+                                        label="XZ Section",
+                                        tab_id="tab-xz",
+                                    ),
+                                    dbc.Tab(
+                                        label="YZ Section",
+                                        tab_id="tab-yz",
+                                    ),
+                                    dbc.Tab(
+                                        label="Energy Map",
+                                        tab_id="tab-fluence",
+                                    ),
+                                    dbc.Tab(
+                                        label="Depth Profile",
+                                        tab_id="tab-depth",
+                                    ),
                                 ],
+                            ),
+                            # Tab description bar
+                            html.Div(
+                                id="tab-description",
+                                style={
+                                    "padding": "8px 16px",
+                                    "background": "rgba(10,14,26,0.6)",
+                                    "color": "#607898",
+                                    "fontSize": "11px",
+                                    "borderBottom": "1px solid rgba(100,140,255,0.06)",
+                                },
+                                children="Interactive 3D surface temperature view. Rotate, zoom and pan to explore.",
                             ),
                             html.Div(
                                 id="viz-content",
@@ -332,8 +559,9 @@ def get_layout():
                 ],
             ),
 
-            # Hidden store for simulation data
+            # Hidden stores
             dcc.Store(id="sim-data-store"),
+            dcc.Store(id="banner-dismissed", data=False),
             dcc.Loading(
                 id="loading-overlay",
                 type="circle",
