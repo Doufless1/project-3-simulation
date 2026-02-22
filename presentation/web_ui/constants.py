@@ -1,31 +1,32 @@
 
 import plotly.graph_objects as go
 
+from shared.design_tokens import (
+    COLORS, FONT_FAMILY, FONT_MONO,
+    CARD_STYLE as _SHARED_CARD,
+    LABEL_STYLE, SECTION_TITLE_STYLE, VALUE_STYLE as _SHARED_VALUE,
+    INFO_ICON_STYLE as TOOLTIP_ICON_STYLE,
+    INLINE_WARNING_STYLE as WARNING_STYLE,
+    INLINE_ERROR_STYLE as DANGER_STYLE,
+    INLINE_SUCCESS_STYLE as SUCCESS_HINT_STYLE,
+    PRESET_BTN_STYLE, PRESET_BTN_ACTIVE_STYLE,
+    BANNER_STYLE as _SHARED_BANNER,
+    APP_DESCRIPTION_STYLE,
+    RESULT_CARD_STYLE as _SHARED_RESULT,
+)
+
 # ============================================================================
-# CSS Styles (inline for zero dependencies)
+# CSS Styles — bridging shared tokens with sim-specific overrides
 # ============================================================================
 
 CARD_STYLE = {
-    "background": "rgba(20, 25, 45, 0.85)",
+    **_SHARED_CARD,
     "backdropFilter": "blur(12px)",
-    "border": "1px solid rgba(100, 140, 255, 0.12)",
-    "borderRadius": "14px",
-    "padding": "20px",
-    "marginBottom": "16px",
     "boxShadow": "0 4px 30px rgba(0,0,0,0.3)",
 }
 
-SECTION_TITLE_STYLE = {
-    "color": "#64b5f6",
-    "fontSize": "13px",
-    "fontWeight": "700",
-    "textTransform": "uppercase",
-    "letterSpacing": "1.5px",
-    "marginBottom": "14px",
-}
-
 SLIDER_LABEL_STYLE = {
-    "color": "#8898c0",
+    "color": COLORS["muted"],
     "fontSize": "12px",
     "fontWeight": "500",
     "marginBottom": "2px",
@@ -33,20 +34,17 @@ SLIDER_LABEL_STYLE = {
 }
 
 VALUE_STYLE = {
-    "color": "#e0e8ff",
-    "fontSize": "22px",
-    "fontWeight": "700",
-    "fontFamily": "JetBrains Mono, Consolas, monospace",
+    **_SHARED_VALUE,
+    "color": COLORS["text"],
 }
 
 RESULT_CARD_STYLE = {
     **CARD_STYLE,
-    "background": "rgba(20, 30, 55, 0.9)",
-    "border": "1px solid rgba(100, 200, 255, 0.15)",
+    "border": f"1px solid rgba(59, 130, 246, 0.15)",
 }
 
 METRIC_LABEL = {
-    "color": "#7088b0",
+    "color": COLORS["muted"],
     "fontSize": "11px",
     "fontWeight": "600",
     "textTransform": "uppercase",
@@ -54,103 +52,14 @@ METRIC_LABEL = {
 }
 
 METRIC_VALUE = {
-    "color": "#e0f0ff",
+    "color": COLORS["text"],
     "fontSize": "20px",
     "fontWeight": "700",
-    "fontFamily": "JetBrains Mono, Consolas, monospace",
-}
-
-# ============================================================================
-# Tooltip & Help Styles
-# ============================================================================
-
-TOOLTIP_ICON_STYLE = {
-    "display": "inline-flex",
-    "alignItems": "center",
-    "justifyContent": "center",
-    "width": "16px",
-    "height": "16px",
-    "borderRadius": "50%",
-    "background": "rgba(100,140,255,0.15)",
-    "color": "#64b5f6",
-    "fontSize": "10px",
-    "fontWeight": "700",
-    "cursor": "help",
-    "marginLeft": "6px",
-    "verticalAlign": "middle",
-    "lineHeight": "1",
-    "flexShrink": "0",
-}
-
-WARNING_STYLE = {
-    "display": "flex",
-    "alignItems": "center",
-    "gap": "8px",
-    "padding": "8px 12px",
-    "borderRadius": "8px",
-    "fontSize": "12px",
-    "fontWeight": "500",
-    "marginTop": "6px",
-    "background": "rgba(255, 165, 0, 0.08)",
-    "border": "1px solid rgba(255, 165, 0, 0.2)",
-    "color": "#ffb347",
-}
-
-DANGER_STYLE = {
-    "display": "flex",
-    "alignItems": "center",
-    "gap": "8px",
-    "padding": "8px 12px",
-    "borderRadius": "8px",
-    "fontSize": "12px",
-    "fontWeight": "500",
-    "marginTop": "6px",
-    "background": "rgba(255, 80, 80, 0.08)",
-    "border": "1px solid rgba(255, 80, 80, 0.2)",
-    "color": "#ff6b6b",
-}
-
-SUCCESS_HINT_STYLE = {
-    "display": "flex",
-    "alignItems": "center",
-    "gap": "8px",
-    "padding": "8px 12px",
-    "borderRadius": "8px",
-    "fontSize": "12px",
-    "fontWeight": "500",
-    "marginTop": "6px",
-    "background": "rgba(80, 200, 100, 0.08)",
-    "border": "1px solid rgba(80, 200, 100, 0.2)",
-    "color": "#50c864",
-}
-
-PRESET_BTN_STYLE = {
-    "flex": "1",
-    "padding": "10px 8px",
-    "background": "rgba(67, 97, 238, 0.08)",
-    "color": "#8898c0",
-    "border": "1px solid rgba(100, 140, 255, 0.15)",
-    "borderRadius": "8px",
-    "fontSize": "11px",
-    "fontWeight": "600",
-    "cursor": "pointer",
-    "transition": "all 0.2s ease",
-    "textAlign": "center",
-    "lineHeight": "1.4",
-}
-
-PRESET_BTN_ACTIVE_STYLE = {
-    **PRESET_BTN_STYLE,
-    "background": "rgba(67, 97, 238, 0.2)",
-    "color": "#a0b8ff",
-    "borderColor": "rgba(100, 140, 255, 0.35)",
+    "fontFamily": FONT_MONO,
 }
 
 BANNER_STYLE = {
-    "background": "linear-gradient(135deg, rgba(67,97,238,0.12) 0%, rgba(58,12,163,0.08) 100%)",
-    "border": "1px solid rgba(100,140,255,0.15)",
-    "borderRadius": "12px",
-    "padding": "16px 20px",
+    **_SHARED_BANNER,
     "margin": "0 24px 0 24px",
     "display": "flex",
     "alignItems": "flex-start",
@@ -162,7 +71,7 @@ BANNER_STEP_STYLE = {
     "display": "flex",
     "alignItems": "center",
     "gap": "8px",
-    "color": "#a0b8e0",
+    "color": COLORS["muted_strong"],
     "fontSize": "13px",
     "fontWeight": "500",
 }
@@ -174,15 +83,15 @@ BANNER_STEP_NUMBER = {
     "width": "22px",
     "height": "22px",
     "borderRadius": "50%",
-    "background": "rgba(67,97,238,0.25)",
-    "color": "#64b5f6",
+    "background": f"rgba(59,130,246,0.25)",
+    "color": COLORS["primary"],
     "fontSize": "11px",
     "fontWeight": "700",
     "flexShrink": "0",
 }
 
 INTERPRETATION_STYLE = {
-    "color": "#607898",
+    "color": COLORS["muted"],
     "fontSize": "11px",
     "fontWeight": "400",
     "marginTop": "2px",
@@ -211,15 +120,37 @@ PLOT_TEMPLATE = dict(
 # ============================================================================
 
 APP_INDEX_STRING = '''<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="theme-color" content="#0a0e1a">
+    <meta name="theme-color" content="#0a0e17">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     {%metas%}{%favicon%}{%css%}
     <title>{%title%}</title>
     <style>
+        /* Skip-nav for keyboard accessibility */
+        .skip-nav {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #3b82f6;
+            color: #fff;
+            padding: 8px 16px;
+            z-index: 9999;
+            font-size: 14px;
+            transition: top 0.2s;
+        }
+        .skip-nav:focus {
+            top: 0;
+        }
+        /* Focus-visible ring */
+        *:focus-visible {
+            outline: 2px solid #3b82f6 !important;
+            outline-offset: 2px !important;
+            border-radius: 4px;
+        }
         /* ================================================================
            BASE RESET & GLOBAL
            ================================================================ */
@@ -288,7 +219,7 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
             width: 24px !important;
             height: 24px !important;
             margin-top: -10px !important;
-            border: 2px solid #4361ee !important;
+            border: 2px solid #3b82f6 !important;
             background: #1a2040 !important;
             box-shadow: 0 2px 8px rgba(67,97,238,0.4) !important;
             opacity: 1 !important;
@@ -296,7 +227,7 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
         .rc-slider-handle:active, .rc-slider-handle:focus {
             box-shadow: 0 0 0 5px rgba(67,97,238,0.25) !important;
         }
-        .rc-slider-track { background: #4361ee !important; height: 6px !important; }
+        .rc-slider-track { background: #3b82f6 !important; height: 6px !important; }
         .rc-slider-rail { background: #1a2040 !important; height: 6px !important; }
         .rc-slider-dot { border-color: #2a3560 !important; }
         .rc-slider-mark-text { color: #506080 !important; font-size: 10px !important; }
@@ -329,7 +260,7 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
         .nav-tabs .nav-link.active {
             color: #64b5f6 !important;
             background: rgba(20, 25, 45, 0.85) !important;
-            border-bottom: 2px solid #4361ee !important;
+            border-bottom: 2px solid #3b82f6 !important;
         }
 
         /* ================================================================
@@ -342,7 +273,7 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
             padding: 8px 4px !important;
             cursor: pointer;
         }
-        .form-check-input:checked { background-color: #4361ee !important; border-color: #4361ee !important; }
+        .form-check-input:checked { background-color: #3b82f6 !important; border-color: #3b82f6 !important; }
 
         /* ================================================================
            BUTTONS — TOUCH FRIENDLY
@@ -680,13 +611,14 @@ APP_INDEX_STRING = '''<!DOCTYPE html>
             margin-right: 6px;
             vertical-align: middle;
         }
-        .tab-icon-3d { background: #4361ee; }
+        .tab-icon-3d { background: #3b82f6; }
         .tab-icon-section { background: #e056fd; }
         .tab-icon-energy { background: #ffb347; }
         .tab-icon-depth { background: #ff6b6b; }
     </style>
 </head>
 <body>
+    <a class="skip-nav" href="#main-content">Skip to main content</a>
     {%app_entry%}
     <footer>{%config%}{%scripts%}{%renderer%}</footer>
 </body>

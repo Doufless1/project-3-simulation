@@ -23,6 +23,13 @@ from lab_control.composition_root import create_lab_control, create_cost_calcula
 from lab_control.domain.value_objects import ScanRecipe
 from lab_control.domain.exceptions import LabControlError
 from lab_control.presentation.visualizations import build_3d_lab_figure
+from shared.design_tokens import (
+    COLORS, CARD_STYLE, LABEL_STYLE, BTN_STYLE, SLIDER_MARKS_STYLE,
+    INFO_ICON_STYLE, TOOLTIP_STYLE, TAB_INTRO_STYLE, BANNER_STYLE,
+    APP_DESCRIPTION_STYLE, INLINE_WARNING_STYLE, INLINE_ERROR_STYLE,
+    INLINE_SUCCESS_STYLE, STEP_COMPLETE_STYLE, STEP_ACTIVE_STYLE,
+    STEP_PENDING_STYLE, FONT_FAMILY, FONT_MONO, BTN_DISABLED_STYLE,
+)
 
 # ── Composition Root: Wire dependencies ──────────────────────────────
 
@@ -33,136 +40,54 @@ cost_calc = create_cost_calculator()
 
 app = Dash(
     __name__,
-    title="HVOF Laser Lab — Virtual Control Dashboard",
+    title="HVOF Laser Lab \u2014 Virtual Control Dashboard",
     suppress_callback_exceptions=True,
 )
 
-# ── Colour Palette ───────────────────────────────────────────────────
 
-COLORS = {
-    "bg": "#0a0e17",
-    "card": "#111827",
-    "card_border": "#1e293b",
-    "primary": "#3b82f6",
-    "success": "#10b981",
-    "danger": "#ef4444",
-    "warning": "#f59e0b",
-    "text": "#e2e8f0",
-    "muted": "#94a3b8",
-    "accent": "#8b5cf6",
-}
-
-# ── Styles ───────────────────────────────────────────────────────────
-
-CARD_STYLE = {
-    "backgroundColor": COLORS["card"],
-    "border": f"1px solid {COLORS['card_border']}",
-    "borderRadius": "12px",
-    "padding": "20px",
-    "marginBottom": "16px",
-}
-
-LABEL_STYLE = {
-    "color": COLORS["muted"],
-    "fontSize": "12px",
-    "textTransform": "uppercase",
-    "letterSpacing": "1px",
-    "marginBottom": "6px",
-}
-
-BTN_STYLE = {
-    "padding": "10px 20px",
-    "borderRadius": "8px",
-    "border": "none",
-    "cursor": "pointer",
-    "fontWeight": "600",
-    "fontSize": "13px",
-    "marginRight": "8px",
-    "marginBottom": "8px",
-    "display": "inline-flex",
-    "alignItems": "center",
-    "gap": "8px",
-    "transition": "opacity 0.2s",
-}
-
-SLIDER_MARKS_STYLE = {"color": COLORS["muted"], "fontSize": "11px"}
-
-INFO_ICON_STYLE = {
-    "display": "inline-flex",
-    "alignItems": "center",
-    "justifyContent": "center",
-    "width": "18px",
-    "height": "18px",
-    "borderRadius": "50%",
-    "backgroundColor": "rgba(139, 92, 246, 0.15)",
-    "color": COLORS["accent"],
-    "fontSize": "11px",
-    "fontWeight": "700",
-    "cursor": "help",
-    "marginLeft": "6px",
-    "flexShrink": "0",
-}
-
-TOOLTIP_STYLE = {
-    "position": "relative",
-    "display": "inline-flex",
-    "alignItems": "center",
-}
-
-TAB_INTRO_STYLE = {
-    "backgroundColor": "rgba(59, 130, 246, 0.08)",
-    "border": f"1px solid rgba(59, 130, 246, 0.2)",
-    "borderRadius": "8px",
-    "padding": "12px 16px",
-    "marginBottom": "16px",
-    "fontSize": "13px",
-    "color": COLORS["muted"],
-    "lineHeight": "1.5",
-}
-
-BANNER_STYLE = {
-    "background": "linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.12) 100%)",
-    "border": f"1px solid rgba(59, 130, 246, 0.25)",
-    "borderRadius": "12px",
-    "padding": "20px",
-    "marginBottom": "20px",
-}
-
-
-def _icon(name, size=16, color=None):
-    """Factory: creates a NanoBanana style SVG icon."""
+def _icon(name, size=16, color=None, alt=""):
+    """Factory: creates a NanoBanana style SVG icon with alt text for a11y."""
     style = {
         "width": f"{size}px",
         "height": f"{size}px",
         "verticalAlign": "middle",
     }
-    # Filter hack for status colors if needed (simplified)
     if color == "success":
         style["filter"] = "invert(54%) sepia(66%) saturate(464%) hue-rotate(97deg) brightness(93%) contrast(92%)"
     elif color == "danger":
         style["filter"] = "invert(36%) sepia(74%) saturate(1915%) hue-rotate(338deg) brightness(98%) contrast(96%)"
     elif color == "warning":
         style["filter"] = "invert(76%) sepia(35%) saturate(5451%) hue-rotate(359deg) brightness(101%) contrast(94%)"
-        
-    return html.Img(src=f"/assets/icons/{name}.svg", style=style)
+
+    props = {"src": f"/assets/icons/{name}.svg", "style": style}
+    if alt:
+        props["alt"] = alt
+    else:
+        # Decorative icon — hide from screen readers
+        props["alt"] = ""
+        props["role"] = "presentation"
+    return html.Img(**props)
 
 
-def _btn(text, btn_id, color_key="primary", icon_name=None):
-    """Factory: creates a styled button (DRY)."""
+def _btn(text, btn_id, color_key="primary", icon_name=None, disabled=False):
+    """Factory: creates a styled button with a11y label (DRY)."""
     children = []
     if icon_name:
         children.append(_icon(icon_name))
     children.append(html.Span(text))
-    
+
+    base = BTN_DISABLED_STYLE if disabled else BTN_STYLE
     return html.Button(
         children,
         id=btn_id,
         n_clicks=0,
         style={
-            **BTN_STYLE,
+            **base,
             "backgroundColor": COLORS[color_key],
             "color": "#fff",
         },
+        **{"aria-label": text},
+        disabled=disabled,
     )
 
 
@@ -198,19 +123,64 @@ def _tab_intro(text):
     return html.Div(text, style=TAB_INTRO_STYLE)
 
 
+def _workflow_step(number, label, step_id):
+    """Factory: a single step in the workflow stepper (R3)."""
+    return html.Div(
+        id=step_id,
+        style={
+            "display": "flex", "alignItems": "center", "gap": "8px",
+            "padding": "6px 12px", "borderRadius": "8px",
+            "backgroundColor": "rgba(59, 130, 246, 0.06)",
+            "border": "1px solid rgba(59, 130, 246, 0.12)",
+            "fontSize": "12px", "fontWeight": "600",
+            "color": COLORS["muted"],
+            "whiteSpace": "nowrap",
+        },
+        children=[
+            html.Span(number, style=STEP_PENDING_STYLE),
+            html.Span(label),
+        ],
+    )
+
+
+def _workflow_connector():
+    """Factory: arrow connector between workflow steps."""
+    return html.Span(
+        "\u2192",
+        style={"color": COLORS["card_border"], "fontSize": "16px", "padding": "0 2px"},
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════
 #                             LAYOUT
 # ══════════════════════════════════════════════════════════════════════
 
 app.index_string = '''
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         {%metas%}
         <title>{%title%}</title>
         {%favicon%}
         {%css%}
         <style>
+            /* Skip-nav link for keyboard users */
+            .skip-nav {
+                position: absolute;
+                top: -40px;
+                left: 0;
+                background: #3b82f6;
+                color: #fff;
+                padding: 8px 16px;
+                z-index: 9999;
+                font-size: 14px;
+                transition: top 0.2s;
+            }
+            .skip-nav:focus {
+                top: 0;
+            }
             *:focus-visible {
                 outline: 2px solid #3b82f6 !important;
                 outline-offset: 2px !important;
@@ -221,9 +191,17 @@ app.index_string = '''
                 outline-offset: 2px !important;
                 box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
             }
+            /* Reduced motion */
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after {
+                    animation-duration: 0.01ms !important;
+                    transition-duration: 0.01ms !important;
+                }
+            }
         </style>
     </head>
     <body>
+        <a class="skip-nav" href="#main-content">Skip to main content</a>
         {%app_entry%}
         <footer>
             {%config%}
@@ -239,14 +217,15 @@ app.layout = html.Div(
         "backgroundColor": COLORS["bg"],
         "minHeight": "100vh",
         "color": COLORS["text"],
-        "fontFamily": "'Inter', 'Segoe UI', system-ui, sans-serif",
+        "fontFamily": FONT_FAMILY,
         "padding": "24px",
+        "paddingBottom": "48px",
         "display": "flex",
         "flexDirection": "column",
     },
     children=[
         # ── Header ───────────────────────────
-        html.Div([
+        html.Header([
             html.Div([
                 html.H1(
                     "HVOF Laser Lab",
@@ -266,7 +245,7 @@ app.layout = html.Div(
                 html.Span("Virtual Control Dashboard", style={"fontSize": "26px", "fontWeight": "300", "opacity": "0.8"})
             ], style={"display": "flex", "alignItems": "center", "gap": "12px"}),
             html.P(
-                "Laser Treatment Laboratory · Simulation & Control",
+                "Laser Treatment Laboratory \u00b7 Simulation & Control",
                 style={
                     "margin": "4px 0 0",
                     "color": COLORS["muted"],
@@ -274,46 +253,82 @@ app.layout = html.Div(
                     "paddingLeft": "4px",
                 },
             ),
-        ], style={"marginBottom": "24px"}),
+        ], style={"marginBottom": "16px"}, role="banner"),
 
-        # ── How to Operate Banner ─────────────
+        # ── R6: App Description — "What does this app do?" ──
         html.Div(
-            id="lab-onboarding-banner",
-            style=BANNER_STYLE,
+            id="app-description-banner",
+            style=APP_DESCRIPTION_STYLE,
             children=[
-                html.Div([
-                    html.H3(
-                        "How to Operate This Lab",
-                        style={
-                            "margin": "0 0 12px",
-                            "fontSize": "16px",
-                            "fontWeight": "700",
-                            "color": COLORS["text"],
-                        },
-                    ),
-                    html.Button(
-                        "Dismiss",
-                        id="btn-dismiss-banner",
-                        n_clicks=0,
-                        style={
-                            "background": "none",
-                            "border": f"1px solid {COLORS['card_border']}",
-                            "color": COLORS["muted"],
-                            "padding": "4px 12px",
-                            "borderRadius": "6px",
-                            "cursor": "pointer",
-                            "fontSize": "12px",
-                        },
-                    ),
-                ], style={"display": "flex", "justifyContent": "space-between", "alignItems": "center"}),
+                html.P(
+                    "Virtual digital twin of a laser treatment lab. "
+                    "Control the X-Y table, gas system, and laser in a safe simulation environment.",
+                    style={
+                        "margin": "0",
+                        "fontSize": "13px",
+                        "color": COLORS["muted"],
+                        "lineHeight": "1.5",
+                        "flex": "1",
+                    },
+                ),
+                html.Button(
+                    "\u00d7",
+                    id="btn-dismiss-description",
+                    n_clicks=0,
+                    style={
+                        "background": "none", "border": "none",
+                        "color": COLORS["muted"], "fontSize": "18px",
+                        "cursor": "pointer", "padding": "0 4px",
+                        "lineHeight": "1",
+                    },
+                    **{"aria-label": "Dismiss description"},
+                ),
+            ],
+        ),
+
+        # ── R3: Workflow Stepper ─────────────
+        html.Div(
+            id="workflow-stepper",
+            style={
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "4px",
+                "marginBottom": "16px",
+                "flexWrap": "wrap",
+            },
+            role="navigation",
+            **{"aria-label": "Workflow steps"},
+            children=[
+                _workflow_step("1", "Lock Safety", "safety-step"),
+                _workflow_connector(),
+                _workflow_step("2", "Start Gas", "gas-step"),
+                _workflow_connector(),
+                _workflow_step("3", "Fire Laser", "laser-step"),
+                _workflow_connector(),
+                _workflow_step("4", "Run Scan", "scan-step"),
+            ],
+        ),
+
+        # ── How to Operate Banner (collapsible) ─────────────
+        html.Details(
+            id="lab-onboarding-banner",
+            open=True,
+            style={**BANNER_STYLE, "cursor": "default"},
+            children=[
+                html.Summary(
+                    "How to Operate This Lab",
+                    style={
+                        "fontSize": "16px",
+                        "fontWeight": "700",
+                        "color": COLORS["text"],
+                        "cursor": "pointer",
+                        "marginBottom": "12px",
+                        "listStyle": "none",
+                    },
+                ),
                 html.Div([
                     html.Div([
-                        html.Div("1", style={
-                            "width": "28px", "height": "28px", "borderRadius": "50%",
-                            "backgroundColor": COLORS["success"], "color": "#fff",
-                            "display": "flex", "alignItems": "center", "justifyContent": "center",
-                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
-                        }),
+                        html.Div("1", style=STEP_COMPLETE_STYLE),
                         html.Div([
                             html.Strong("Lock Safety", style={"color": COLORS["text"]}),
                             html.Div("Go to the Safety tab. Lock the door and chamber interlocks.",
@@ -321,12 +336,7 @@ app.layout = html.Div(
                         ]),
                     ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
                     html.Div([
-                        html.Div("2", style={
-                            "width": "28px", "height": "28px", "borderRadius": "50%",
-                            "backgroundColor": COLORS["warning"], "color": "#fff",
-                            "display": "flex", "alignItems": "center", "justifyContent": "center",
-                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
-                        }),
+                        html.Div("2", style={**STEP_ACTIVE_STYLE, "backgroundColor": COLORS["warning"]}),
                         html.Div([
                             html.Strong("Start Gas", style={"color": COLORS["text"]}),
                             html.Div("Go to the Laser tab. Set Argon flow and click Purge to flush O\u2082.",
@@ -334,12 +344,7 @@ app.layout = html.Div(
                         ]),
                     ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
                     html.Div([
-                        html.Div("3", style={
-                            "width": "28px", "height": "28px", "borderRadius": "50%",
-                            "backgroundColor": COLORS["danger"], "color": "#fff",
-                            "display": "flex", "alignItems": "center", "justifyContent": "center",
-                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
-                        }),
+                        html.Div("3", style={**STEP_ACTIVE_STYLE, "backgroundColor": COLORS["danger"]}),
                         html.Div([
                             html.Strong("Fire Laser", style={"color": COLORS["text"]}),
                             html.Div("Set power, click Arm, then Fire. All interlocks must be locked.",
@@ -347,12 +352,7 @@ app.layout = html.Div(
                         ]),
                     ], style={"display": "flex", "gap": "10px", "alignItems": "center", "flex": "1"}),
                     html.Div([
-                        html.Div("4", style={
-                            "width": "28px", "height": "28px", "borderRadius": "50%",
-                            "backgroundColor": COLORS["primary"], "color": "#fff",
-                            "display": "flex", "alignItems": "center", "justifyContent": "center",
-                            "fontSize": "14px", "fontWeight": "700", "flexShrink": "0",
-                        }),
+                        html.Div("4", style=STEP_ACTIVE_STYLE),
                         html.Div([
                             html.Strong("Run Scan", style={"color": COLORS["text"]}),
                             html.Div("Go to X-Y Table. Set scan parameters, preview, and run.",
@@ -364,8 +364,7 @@ app.layout = html.Div(
         ),
 
         # ── Main Content Grid ────────────────
-        html.Div([
-            # Left Panel: Controls
+        html.Main([
             html.Div([
                 dcc.Tabs(
                     id="main-tabs",
@@ -379,59 +378,56 @@ app.layout = html.Div(
                     children=[
                         dcc.Tab(
                             label="X-Y Table", value="tab-xy",
-                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            children=[_icon("tab-xy"), " X-Y Table"]
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "borderRadius": "8px 8px 0 0", "fontWeight": "700"},
                         ),
                         dcc.Tab(
-                            label="Laser", value="tab-laser",
-                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            children=[_icon("tab-laser"), " Laser"]
+                            label="Laser & Gas", value="tab-laser",
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700"},
                         ),
                         dcc.Tab(
                             label="Safety", value="tab-safety",
-                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            children=[_icon("tab-safety"), " Safety"]
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700"},
                         ),
                         dcc.Tab(
                             label="Cost", value="tab-cost",
-                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            children=[_icon("tab-cost"), " Cost"]
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700"},
                         ),
                         dcc.Tab(
                             label="3D View", value="tab-3d",
-                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "borderRadius": "0 8px 0 0", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "8px"},
-                            children=[_icon("layers"), " 3D View"]
+                            style={"color": COLORS["text"], "backgroundColor": COLORS["card"], "padding": "12px 20px", "borderRadius": "0 8px 0 0"},
+                            selected_style={"color": "#fff", "backgroundColor": COLORS["primary"], "padding": "12px 20px", "fontWeight": "700", "borderRadius": "0 8px 0 0"},
                         ),
                     ],
                 ),
                 html.Div(id="tab-content"),
             ], style={"flex": "1"}),
 
-        ], style={"display": "flex", "gap": "24px", "flexWrap": "wrap", "flex": "1", "alignItems": "stretch"}),
+        ], id="main-content", style={"display": "flex", "gap": "24px", "flexWrap": "wrap", "flex": "1", "alignItems": "stretch"}, role="main"),
 
-        # ── Hidden interval for auto-refresh (2s instead of 0.5s) ─
+        # ── Hidden interval for auto-refresh (2s) ─
         dcc.Interval(id="refresh-interval", interval=2000, n_intervals=0),
 
-        # ── Separate slower interval for 3D (3s — WebGL is expensive) ─
+        # ── Separate slower interval for 3D (3s) ─
         dcc.Interval(id="3d-interval", interval=3000, n_intervals=0),
 
-        # ── Shared status store (avoids duplicate get_full_status calls) ─
+        # ── Shared status store ─
         dcc.Store(id="status-store"),
 
         # ── Fire confirmation dialog ─
         dcc.ConfirmDialog(
             id="confirm-fire",
-            message="⚠️ FIRE LASER?\n\nThis will activate the laser at the set power level.\nEnsure all safety interlocks are engaged and the chamber is clear.\n\nProceed?",
+            message="\u26a0\ufe0f FIRE LASER?\n\nThis will activate the laser at the set power level.\nEnsure all safety interlocks are engaged and the chamber is clear.\n\nProceed?",
         ),
 
         # ── Status bar ───────────────────────
         html.Div(
             id="status-bar",
+            role="status",
+            **{"aria-live": "polite"},
             style={
                 "position": "fixed",
                 "bottom": "0",
@@ -615,6 +611,8 @@ def _build_laser_tab():
                         _btn("Stop", "btn-stop-laser", "primary", "stop"),
                     ],
                 ),
+                # R5: Contextual inline feedback area near action buttons
+                html.Div(id="laser-action-feedback", role="alert", **{"aria-live": "assertive"}),
                 html.P(
                     "Set Power = apply the slider value. Arm = prepare for firing (requires interlocks). "
                     "Fire = emit the laser beam. Stop = immediately cut emission.",
@@ -1154,6 +1152,7 @@ def show_fire_confirm(n_clicks):
         Output("laser-power-pct", "children"),
         Output("laser-wl", "children"),
         Output("laser-bar-fill", "style"),
+        Output("laser-action-feedback", "children"),
     ],
     [
         Input("btn-set-power", "n_clicks"),
@@ -1168,17 +1167,51 @@ def handle_laser_actions(set_clicks, arm_clicks, fire_confirmed, stop_clicks, po
     """Handle laser button clicks. Fire only triggers after confirmation."""
     triggered = callback_context.triggered[0]["prop_id"]
     error_msg = None
+    feedback = ""
     try:
         if "btn-set-power" in triggered:
             lab.set_laser_power(power)
+            feedback = html.Div(
+                [_icon("check-circle", color="success"), html.Span(f" Power set to {power} W")],
+                style=INLINE_SUCCESS_STYLE,
+            )
         elif "btn-arm" in triggered:
             lab.arm_laser()
+            feedback = html.Div(
+                [_icon("target", color="warning"), html.Span(" Laser ARMED \u2014 ready to fire")],
+                style=INLINE_WARNING_STYLE,
+            )
         elif "confirm-fire" in triggered:
             lab.fire_laser()
+            feedback = html.Div(
+                [_icon("zap", color="danger"), html.Span(" Laser FIRING")],
+                style=INLINE_ERROR_STYLE,
+            )
         elif "btn-stop-laser" in triggered:
             lab.stop_laser()
+            feedback = html.Div(
+                [_icon("check-circle", color="success"), html.Span(" Laser stopped")],
+                style=INLINE_SUCCESS_STYLE,
+            )
+    except LabControlError as e:
+        # R5: Contextual error with actionable guidance
+        msg = str(e)
+        hint = ""
+        if "interlock" in msg.lower() or "locked" in msg.lower():
+            hint = " \u2192 Go to the Safety tab to lock interlocks first."
+        elif "arm" in msg.lower():
+            hint = " \u2192 Click Arm before firing."
+        feedback = html.Div(
+            [_icon("alert-triangle", color="warning"), html.Span(f" {msg}{hint}")],
+            style=INLINE_WARNING_STYLE,
+        )
+        error_msg = True
     except Exception as e:
-        error_msg = html.Div([_icon("alert-triangle", color="warning"), html.Span(f" {str(e)}")])
+        feedback = html.Div(
+            [_icon("alert-triangle", color="danger"), html.Span(f" Error: {str(e)}")],
+            style=INLINE_ERROR_STYLE,
+        )
+        error_msg = True
 
     status = lab.get_full_status()
     ls = status["laser"]
@@ -1189,33 +1222,27 @@ def handle_laser_actions(set_clicks, arm_clicks, fire_confirmed, stop_clicks, po
         "background": f"linear-gradient(90deg, {COLORS['success']}, {COLORS['danger']})",
         "transition": "width 0.3s ease",
     }
-    
-    if error_msg:
-        state_display = error_msg
+
+    state = ls["state"]
+    if state == "FIRING":
+        icon, color = "zap", "danger"
+    elif state == "ARMED":
+        icon, color = "target", "warning"
     else:
-        # Icon mapping for laser state
-        state = ls["state"]
-        if state == "FIRING":
-            icon = "zap"
-            color = "danger"
-        elif state == "ARMED":
-            icon = "target"
-            color = "warning"
-        else: # OFF
-            icon = "stop"
-            color = "muted"
-            
-        state_display = html.Div([
-            _icon(icon, color=color),
-            html.Span(f" {state}")
-        ], style={"display": "flex", "alignItems": "center", "gap": "6px", "color": COLORS.get(color, COLORS["text"])})
-    
+        icon, color = "stop", "muted"
+
+    state_display = html.Div([
+        _icon(icon, color=color),
+        html.Span(f" {state}", style={"fontWeight": "700"})
+    ], style={"display": "flex", "alignItems": "center", "gap": "6px", "color": COLORS.get(color, COLORS["text"])})
+
     return (
         state_display,
         f"{ls['power_w']:.0f} W",
         f"{ls['power_pct']:.1f}%",
         f"{lab.laser.wavelength_nm} nm",
         bar_style,
+        feedback,
     )
 
 
@@ -1400,27 +1427,79 @@ def update_status_bar(status):
     l = status["laser"]
     g = status["gas"]
     s = status["safety"]
-    all_ok = "\u2705" if s["all_clear"] else "\u274c"
+    safety_label = "All Clear" if s["all_clear"] else "Not Ready"
+    safety_color = COLORS["success"] if s["all_clear"] else COLORS["danger"]
     return [
         html.Span(f"Table: {t['state']} | X={t['position_x']:.1f} Y={t['position_y']:.1f}"),
         html.Span(f"Laser: {l['state']} | {l['power_w']:.0f}W"),
         html.Span(f"Gas: {g['state']} | {g['flow_l_min']:.1f} L/min"),
-        html.Span(f"Safety: {all_ok}"),
+        html.Span([
+            "Safety: ",
+            html.Span(safety_label, style={"color": safety_color, "fontWeight": "700"}),
+        ]),
     ]
 
 
-# ── Banner Dismiss Callback ─────────────────────────────────────────
+# ── App Description Banner Dismiss ────────────────────────────────
 
 @app.callback(
-    Output("lab-onboarding-banner", "style"),
-    Input("btn-dismiss-banner", "n_clicks"),
+    Output("app-description-banner", "style"),
+    Input("btn-dismiss-description", "n_clicks"),
     prevent_initial_call=True,
 )
-def dismiss_banner(n_clicks):
-    """Hide the onboarding banner when dismissed."""
+def dismiss_description(n_clicks):
+    """Hide the app description banner when dismissed."""
     if n_clicks:
-        return {**BANNER_STYLE, "display": "none"}
-    return BANNER_STYLE
+        return {**APP_DESCRIPTION_STYLE, "display": "none"}
+    return APP_DESCRIPTION_STYLE
+
+
+# ── R3: Workflow Stepper Update ───────────────────────────────────
+
+@app.callback(
+    [
+        Output("safety-step", "style"),
+        Output("gas-step", "style"),
+        Output("laser-step", "style"),
+        Output("scan-step", "style"),
+    ],
+    Input("status-store", "data"),
+)
+def update_workflow_stepper(status):
+    """Update the workflow stepper based on current system state."""
+    if not status:
+        raise dash.exceptions.PreventUpdate
+
+    s = status["safety"]
+    g = status["gas"]
+    l = status["laser"]
+    t = status["table"]
+
+    base = {
+        "display": "flex", "alignItems": "center", "gap": "8px",
+        "padding": "6px 12px", "borderRadius": "8px",
+        "fontSize": "12px", "fontWeight": "600", "whiteSpace": "nowrap",
+    }
+    pending = {**base, "backgroundColor": "rgba(59,130,246,0.06)", "border": "1px solid rgba(59,130,246,0.12)", "color": COLORS["muted"]}
+    complete = {**base, "backgroundColor": "rgba(16,185,129,0.1)", "border": f"1px solid {COLORS['success']}", "color": COLORS["success"]}
+    active = {**base, "backgroundColor": "rgba(59,130,246,0.12)", "border": f"1px solid {COLORS['primary']}", "color": COLORS["primary"]}
+
+    # Step 1: Safety — complete when both interlocks locked + no e-stop
+    safety_ok = s["door"] == "LOCKED" and s["chamber"] == "LOCKED" and not s["e_stop"]
+    safety_style = complete if safety_ok else active
+
+    # Step 2: Gas — complete when atmosphere safe
+    gas_ok = g["atmosphere_safe"]
+    gas_style = complete if gas_ok else (active if safety_ok else pending)
+
+    # Step 3: Laser — complete when firing
+    laser_firing = l["state"] == "FIRING"
+    laser_style = complete if laser_firing else (active if gas_ok and safety_ok else pending)
+
+    # Step 4: Scan — complete when scanning
+    scan_style = active if laser_firing else pending
+
+    return safety_style, gas_style, laser_style, scan_style
 
 
 # ══════════════════════════════════════════════════════════════════════
