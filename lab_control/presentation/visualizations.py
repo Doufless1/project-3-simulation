@@ -1,144 +1,138 @@
 """
-Lab Visualizations Module — Enhanced State-Reactive 3D.
+Lab Visualizations Module — Smooth State-Reactive 3D.
 
 Provides 3D visualizations for the Lab Control Dashboard.
-Shows visual feedback for every lab action:
-  - Gas flow: animated particle trail from tanks to chamber
-  - Purging: swirling particles inside chamber
-  - Laser beam: core beam + glow + impact spark
-  - Chamber moves with X-Y table
-  - Safety enclosure changes color (green=locked, red=open)
-  - Extraction fan active when gas flows
+Optimized for smooth rotation/panning and clean state transitions:
+  - Low-poly cylinders (8 segments) for responsive WebGL
+  - Fixed particle positions (no randomness) for consistency
+  - Soft color palette for state changes (no harsh flashing)
+  - uirevision preserves camera between updates
+  - Transition duration for smooth figure swaps
 
-Static geometry is cached at module level; only dynamic elements
-are updated per callback (~18 static + ~5 dynamic traces max).
+Static geometry cached at module level; dynamic elements update per call.
 """
 
 import plotly.graph_objects as go
 import numpy as np
 
-# ── Palette ──────────────────────────────────────────────────────────
+# ── Palette (softer tones for smooth transitions) ────────────────────
 COLORS = {
     "bg": "#0a0e17",
-    "floor": "#1e293b",
-    "grid": "#334155",
-    "table": "#94a3b8",
+    "floor": "#1a2332",
+    "table": "#8899aa",
     "table_legs": "#475569",
     "stage": "#3b82f6",
-    "chamber": "#f59e0b",
-    "chamber_hot": "#ef4444",
-    "laser_body": "#dc2626",
-    "laser_beam": "#ef4444",
-    "core_beam": "#ffffff",
-    "beam_glow": "#ff6b6b",
-    "gas": "#10b981",
-    "gas_flow": "#34d399",
-    "gas_purge": "#6ee7b7",
+    "chamber_idle": "#f5a623",
+    "chamber_laser": "#e85d4a",
+    "chamber_purge": "#5cb8a5",
+    "laser_body": "#c43e3e",
+    "laser_beam_core": "#ffffff",
+    "beam_glow": "rgba(255,100,100,0.3)",
+    "spark": "#ffcc44",
+    "gas_tank": "#2d9d78",
+    "gas_flow": "#4ae0b5",
+    "purge_swirl": "#7af0d0",
+    "pipe": "#3a4556",
     "pc_body": "#1f2937",
-    "pc_screen": "#8b5cf6",
-    "extract": "#64748b",
-    "extract_active": "#06b6d4",
-    "cage_locked": "#10b981",
-    "cage_open": "#ef4444",
-    "cage_glass": "#06b6d4",
-    "text": "#f8fafc",
-    "hazard": "#eab308",
-    "pipe": "#374151",
-    "door_locked": "#10b981",
-    "door_open": "#ef4444",
+    "pc_screen": "#7c5cbf",
+    "extract": "#5a6a7a",
+    "extract_on": "#38a5c4",
+    "cage_safe": "rgba(16,185,129,0.07)",
+    "cage_warn": "rgba(239,68,68,0.12)",
+    "cage_estop": "rgba(239,68,68,0.22)",
+    "text": "#f0f4f8",
+    "fiber": "#d4a846",
+    "valve": "#71787f",
 }
 
 # ── Lighting presets ─────────────────────────────────────────────────
 _LIT_METAL = dict(ambient=0.6, diffuse=0.8, specular=0.2, roughness=0.5, fresnel=0.2)
 _LIT_SHINY = dict(ambient=0.6, diffuse=0.6, specular=0.8, roughness=0.4)
 _LIT_MATTE = dict(ambient=0.5, diffuse=0.5, specular=0.1, roughness=0.8)
-_LIT_GLASS = dict(ambient=0.5, diffuse=0.1, specular=1.0, roughness=0.0, fresnel=1.0)
+_LIT_GLASS = dict(ambient=0.4, diffuse=0.1, specular=0.8, roughness=0.0, fresnel=0.8)
 _LIT_EMISSIVE = dict(ambient=0.9, diffuse=0.1, specular=1.0)
-_LIT_GLOW = dict(ambient=1.0, diffuse=0.0, specular=0.0)
 
 
 # ── Geometry Helpers ─────────────────────────────────────────────────
 
-def _add_box(fig, name, x0, y0, z0, dx, dy, dz, color,
-             opacity=1.0, showlegend=True, lighting=None):
-    """Add a 3D box as a single Mesh3d trace."""
-    x = [x0, x0+dx, x0+dx, x0,    x0, x0+dx, x0+dx, x0]
-    y = [y0, y0,    y0+dy, y0+dy,  y0, y0,    y0+dy, y0+dy]
-    z = [z0, z0,    z0,    z0,     z0+dz, z0+dz, z0+dz, z0+dz]
-    i = [0,0,0,0,4,4,2,2,0,0,1,1]
-    j = [1,2,4,5,5,6,3,6,1,3,2,6]
-    k = [2,3,5,6,6,7,6,7,4,7,5,5]
-    fig.add_trace(go.Mesh3d(
-        x=x, y=y, z=z, i=i, j=j, k=k,
+def _box(name, x0, y0, z0, dx, dy, dz, color,
+         opacity=1.0, showlegend=True, lighting=None):
+    """Return a Mesh3d box trace (not added to fig — for batching)."""
+    x = [x0, x0+dx, x0+dx, x0, x0, x0+dx, x0+dx, x0]
+    y = [y0, y0, y0+dy, y0+dy, y0, y0, y0+dy, y0+dy]
+    z = [z0, z0, z0, z0, z0+dz, z0+dz, z0+dz, z0+dz]
+    return go.Mesh3d(
+        x=x, y=y, z=z,
+        i=[0,0,0,0,4,4,2,2,0,0,1,1],
+        j=[1,2,4,5,5,6,3,6,1,3,2,6],
+        k=[2,3,5,6,6,7,6,7,4,7,5,5],
         color=color, opacity=opacity,
         name=name, showlegend=showlegend,
         lightposition=dict(x=10, y=10, z=100),
         lighting=lighting or _LIT_METAL,
         hovertemplate=f"<b>{name}</b><extra></extra>",
-    ))
+    )
 
 
-def _add_cylinder(fig, name, cx, cy, z_bot, z_top, radius, color,
-                  res=16, opacity=1.0, showlegend=True, lighting=None):
-    """Add a cylinder as a single Mesh3d trace (circles + sides)."""
-    theta = np.linspace(0, 2 * np.pi, res, endpoint=False)
-    cos_t = np.cos(theta)
-    sin_t = np.sin(theta)
-
-    # Bottom and top circle vertices
-    xb = cx + radius * cos_t
-    yb = cy + radius * sin_t
-    zb = np.full(res, z_bot)
-    xt = cx + radius * cos_t
-    yt = cy + radius * sin_t
-    zt = np.full(res, z_top)
-
-    # Center points for caps
-    x_all = np.concatenate([xb, xt, [cx, cx]])
-    y_all = np.concatenate([yb, yt, [cy, cy]])
-    z_all = np.concatenate([zb, zt, [z_bot, z_top]])
-    bc = 2 * res      # bottom center index
-    tc = 2 * res + 1   # top center index
-
+def _cylinder(name, cx, cy, z0, z1, r, color,
+              n=8, opacity=1.0, showlegend=True, lighting=None):
+    """Return a Mesh3d cylinder trace (low-poly, 8 segments default)."""
+    θ = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    cos, sin = np.cos(θ), np.sin(θ)
+    # Vertices: bottom ring, top ring, center bottom, center top
+    x = np.concatenate([cx + r*cos, cx + r*cos, [cx, cx]])
+    y = np.concatenate([cy + r*sin, cy + r*sin, [cy, cy]])
+    z = np.concatenate([np.full(n, z0), np.full(n, z1), [z0, z1]])
+    bc, tc = 2*n, 2*n + 1
     ii, jj, kk = [], [], []
-    for idx in range(res):
-        nxt = (idx + 1) % res
-        # Side faces (two triangles per quad)
-        ii += [idx, idx]
-        jj += [nxt, idx + res]
-        kk += [idx + res, nxt + res]
-        ii += [nxt]
-        jj += [nxt + res]
-        kk += [idx + res]
-        # Bottom cap
-        ii.append(bc)
-        jj.append(idx)
-        kk.append(nxt)
-        # Top cap
-        ii.append(tc)
-        jj.append(idx + res)
-        kk.append(nxt + res)
-
-    fig.add_trace(go.Mesh3d(
-        x=x_all, y=y_all, z=z_all,
-        i=ii, j=jj, k=kk,
+    for i in range(n):
+        nx = (i + 1) % n
+        # Side quads (2 triangles)
+        ii += [i, i, nx]; jj += [nx, i+n, nx+n]; kk += [i+n, nx+n, i+n]
+        # Caps
+        ii += [bc, tc]; jj += [i, i+n]; kk += [nx, nx+n]
+    return go.Mesh3d(
+        x=x, y=y, z=z, i=ii, j=jj, k=kk,
         color=color, opacity=opacity,
         name=name, showlegend=showlegend,
         lightposition=dict(x=10, y=10, z=100),
         lighting=lighting or _LIT_METAL,
         hovertemplate=f"<b>{name}</b><extra></extra>",
-    ))
+    )
 
 
-# ── Shared layout config ────────────────────────────────────────────
+# ── Key lab coordinates ──────────────────────────────────────────────
+TX, TY, TZ = 1.5, 1.5, 0.8
+TW, TD, TH = 1.5, 1.0, 0.15
+XY_Z = TZ + TH
+HEAD_X, HEAD_Y = TX + 0.75, TY + 0.5
+HEAD_Z = XY_Z + 0.1 + 0.3 + 0.4  # above chamber
+T1X, T1Y = 0.50, 4.00  # Tank 1
+T2X, T2Y = 0.90, 4.00  # Tank 2
+TANK_R, TANK_H = 0.13, 1.4
+
+# Pre-computed gas flow path (8 fixed waypoints, no randomness)
+_FLOW_PATH = np.array([
+    [T1X, T1Y - TANK_R, TANK_H * 0.8],
+    [T1X, 3.5, TANK_H * 0.8],
+    [T1X + 0.3, 3.2, TANK_H * 0.7],
+    [TX, 2.8, XY_Z + 0.5],
+    [TX + 0.2, 2.4, XY_Z + 0.4],
+    [TX + 0.4, 2.1, XY_Z + 0.3],
+    [TX + 0.6, 1.9, XY_Z + 0.2],
+    [TX + 0.75, TY + 0.5, XY_Z + 0.15],
+])
+
+
+# ── Layout (shared, constant) ───────────────────────────────────────
 _LAYOUT = dict(
     scene=dict(
         xaxis=dict(title="", range=[0, 6], showgrid=False,
-                   zeroline=False, showbackground=False),
+                   zeroline=False, showbackground=False, showticklabels=False),
         yaxis=dict(title="", range=[0, 5], showgrid=False,
-                   zeroline=False, showbackground=False),
+                   zeroline=False, showbackground=False, showticklabels=False),
         zaxis=dict(title="", range=[0, 2.5], showgrid=False,
-                   zeroline=False, showbackground=False),
+                   zeroline=False, showbackground=False, showticklabels=False),
         aspectratio=dict(x=1.2, y=1, z=0.5),
         camera=dict(
             eye=dict(x=1.5, y=-1.5, z=0.8),
@@ -151,131 +145,111 @@ _LAYOUT = dict(
     margin=dict(l=0, r=0, t=0, b=0),
     showlegend=True,
     legend=dict(
-        x=0.02, y=0.98,
-        bgcolor="rgba(0,0,0,0)",
+        x=0.01, y=0.99,
+        bgcolor="rgba(10,14,23,0.7)",
+        bordercolor="rgba(255,255,255,0.1)",
+        borderwidth=1,
         font=dict(color=COLORS["text"], size=10),
     ),
-    uirevision="constant",
+    uirevision="lab-3d",  # Preserves camera angle between updates
 )
-
-
-# ── Key lab coordinates (shared between static and dynamic) ──────────
-TX, TY, TZ = 1.5, 1.5, 0.8     # Optical table origin
-TW, TD, TH = 1.5, 1.0, 0.15    # Table width, depth, height
-XY_Z = TZ + TH                   # Top of table
-HEAD_X = TX + 0.75               # Laser head position
-HEAD_Y = TY + 0.5
-# Gas tank positions
-TANK1_CX, TANK1_CY = 0.50, 4.00
-TANK2_CX, TANK2_CY = 0.90, 4.00
-TANK_R = 0.13
-TANK_H = 1.4
 
 
 def _build_static_traces():
     """Pre-build all static lab geometry (called once at import)."""
-    fig = go.Figure()
+    traces = []
 
-    # 1. Floor — single surface
+    # 1. Floor
     x = np.linspace(0, 6, 2)
     y = np.linspace(0, 5, 2)
     X, Y = np.meshgrid(x, y)
-    Z = np.zeros_like(X) - 0.05
-    fig.add_trace(go.Surface(
-        x=X, y=Y, z=Z,
+    traces.append(go.Surface(
+        x=X, y=Y, z=np.zeros_like(X) - 0.05,
         colorscale=[[0, COLORS["floor"]], [1, COLORS["floor"]]],
         showscale=False,
         lighting=dict(ambient=0.8, diffuse=0.8, specular=0.1, roughness=0.8),
         hoverinfo="none", name="Floor",
     ))
 
-    # 2. Optical Table (brushed metal look)
-    _add_box(fig, "Optical Table", TX, TY, TZ, TW, TD, TH,
-             COLORS["table"],
-             lighting=dict(ambient=0.5, diffuse=0.5, specular=0.6, roughness=0.3))
+    # 2. Optical Table
+    traces.append(_box("Optical Table", TX, TY, TZ, TW, TD, TH,
+                       COLORS["table"],
+                       lighting=dict(ambient=0.5, diffuse=0.5, specular=0.6, roughness=0.3)))
 
-    # Table legs — 4 cylinders
-    for lx, ly in [
-        (TX + 0.1, TY + 0.1),
-        (TX + TW - 0.1, TY + 0.1),
-        (TX + 0.1, TY + TD - 0.1),
-        (TX + TW - 0.1, TY + TD - 0.1),
-    ]:
-        _add_cylinder(fig, "Leg", lx, ly, 0, TZ, 0.04,
-                      COLORS["table_legs"], res=8, showlegend=False)
+    # Table legs (4 low-poly cylinders)
+    for lx, ly in [(TX+0.1, TY+0.1), (TX+TW-0.1, TY+0.1),
+                   (TX+0.1, TY+TD-0.1), (TX+TW-0.1, TY+TD-0.1)]:
+        traces.append(_cylinder("Leg", lx, ly, 0, TZ, 0.04,
+                                COLORS["table_legs"], n=6, showlegend=False))
 
-    # 3. X-Y Stages base
-    _add_box(fig, "X-Y Stages", TX + 0.2, TY + 0.1, XY_Z, 1.1, 0.8, 0.1,
-             COLORS["stage"], lighting=_LIT_SHINY)
+    # 3. X-Y Stages
+    traces.append(_box("X-Y Stages", TX+0.2, TY+0.1, XY_Z, 1.1, 0.8, 0.1,
+                       COLORS["stage"], lighting=_LIT_SHINY))
 
-    # 4. Laser Head (fixed position, cylindrical)
-    head_z = XY_Z + 0.1 + 0.3 + 0.4
-    _add_cylinder(fig, "Laser Head",
-                  HEAD_X, HEAD_Y, head_z, head_z + 0.25, 0.08,
-                  COLORS["laser_body"], res=12, lighting=_LIT_MATTE)
-    # Lens ring on laser head
-    _add_cylinder(fig, "Lens", HEAD_X, HEAD_Y, head_z - 0.02, head_z + 0.02, 0.1,
-                  "#374151", res=12, showlegend=False, lighting=_LIT_SHINY)
+    # 4. Laser Head (cylinder + lens ring)
+    traces.append(_cylinder("Laser Head", HEAD_X, HEAD_Y,
+                            HEAD_Z, HEAD_Z + 0.25, 0.08,
+                            COLORS["laser_body"], n=8, lighting=_LIT_MATTE))
+    traces.append(_cylinder("Lens", HEAD_X, HEAD_Y,
+                            HEAD_Z - 0.02, HEAD_Z + 0.02, 0.10,
+                            COLORS["pipe"], n=8, showlegend=False, lighting=_LIT_SHINY))
 
     # 5. Laser Source Rack
-    _add_box(fig, "Laser Source", 0.4, 0.4, 0, 0.7, 0.7, 1.5,
-             COLORS["laser_body"])
-    # Fiber cable from rack to head (a thin line)
-    fig.add_trace(go.Scatter3d(
+    traces.append(_box("Laser Source", 0.4, 0.4, 0, 0.7, 0.7, 1.5,
+                       COLORS["laser_body"]))
+
+    # Fiber cable (rack → head)
+    traces.append(go.Scatter3d(
         x=[0.75, 0.75, HEAD_X, HEAD_X],
         y=[0.75, 0.75, HEAD_Y, HEAD_Y],
-        z=[1.5, 2.1, 2.1, head_z + 0.25],
+        z=[1.5, 2.1, 2.1, HEAD_Z + 0.25],
         mode="lines",
-        line=dict(color="#fbbf24", width=3),
+        line=dict(color=COLORS["fiber"], width=3),
         name="Fiber Cable", hoverinfo="none", showlegend=False,
     ))
 
-    # 6. Gas Tanks — proper cylinders with valve tops
-    for label, cx, cy in [("Argon Tank 1", TANK1_CX, TANK1_CY),
-                          ("Argon Tank 2", TANK2_CX, TANK2_CY)]:
-        _add_cylinder(fig, label, cx, cy, 0, TANK_H, TANK_R,
-                      COLORS["gas"], res=12)
-        # Valve dome on top
-        _add_cylinder(fig, "Valve", cx, cy, TANK_H, TANK_H + 0.08, 0.05,
-                      "#6b7280", res=8, showlegend=False)
+    # 6. Gas Tanks (cylinders + valve caps)
+    for label, cx, cy in [("Argon Tank 1", T1X, T1Y),
+                          ("Argon Tank 2", T2X, T2Y)]:
+        traces.append(_cylinder(label, cx, cy, 0, TANK_H, TANK_R,
+                                COLORS["gas_tank"], n=8))
+        traces.append(_cylinder("Valve", cx, cy, TANK_H, TANK_H + 0.08, 0.05,
+                                COLORS["valve"], n=6, showlegend=False))
 
-    # Gas piping from tanks to table area (static pipe path)
-    pipe_y = 3.5
-    fig.add_trace(go.Scatter3d(
-        x=[TANK1_CX, TANK1_CX, TX + 0.25, TX + 0.25],
-        y=[TANK1_CY - TANK_R, pipe_y, pipe_y, TY + TD],
-        z=[TANK_H * 0.8, TANK_H * 0.8, TANK_H * 0.8, XY_Z + 0.15],
+    # Gas piping (fixed path)
+    traces.append(go.Scatter3d(
+        x=_FLOW_PATH[:, 0], y=_FLOW_PATH[:, 1], z=_FLOW_PATH[:, 2],
         mode="lines",
-        line=dict(color=COLORS["pipe"], width=4),
+        line=dict(color=COLORS["pipe"], width=3),
         name="Gas Pipe", hoverinfo="none", showlegend=False,
     ))
 
     # 7. Control Station
-    _add_box(fig, "Control Desk", 4.5, 1.0, 0, 1.2, 0.8, 0.8,
-             COLORS["table_legs"])
-    # Monitor as thin box with emissive screen
-    _add_box(fig, "PC Monitor", 4.8, 1.1, 0.8, 0.6, 0.05, 0.4,
-             COLORS["pc_screen"], lighting=_LIT_EMISSIVE)
-    _add_box(fig, "PC Tower", 5.4, 1.1, 0, 0.2, 0.5, 0.5,
-             COLORS["pc_body"])
+    traces.append(_box("Control Desk", 4.5, 1.0, 0, 1.2, 0.8, 0.8,
+                       COLORS["table_legs"]))
+    traces.append(_box("Monitor", 4.8, 1.1, 0.8, 0.6, 0.05, 0.4,
+                       COLORS["pc_screen"], lighting=_LIT_EMISSIVE))
+    traces.append(_box("PC Tower", 5.4, 1.1, 0, 0.2, 0.5, 0.5,
+                       COLORS["pc_body"], showlegend=False))
 
-    # 8. Extraction Unit (tall cylinder)
-    _add_cylinder(fig, "Extraction Unit", 4.9, 4.4, 0, 2.0, 0.35,
-                  COLORS["extract"], res=12)
-    # Extraction duct from table area to unit
-    fig.add_trace(go.Scatter3d(
-        x=[TX + TW + 0.2, TX + TW + 0.5, 4.9, 4.9],
-        y=[TY + 0.5, TY + 0.5, 4.0, 4.4],
-        z=[XY_Z + 0.6, 1.8, 1.8, 2.0],
+    # 8. Extraction Unit (cylinder)
+    traces.append(_cylinder("Extraction", 4.9, 4.4, 0, 2.0, 0.35,
+                            COLORS["extract"], n=8))
+
+    # Duct line
+    traces.append(go.Scatter3d(
+        x=[TX+TW+0.2, TX+TW+0.5, 4.9, 4.9],
+        y=[TY+0.5, TY+0.5, 4.0, 4.4],
+        z=[XY_Z+0.6, 1.8, 1.8, 2.0],
         mode="lines",
-        line=dict(color=COLORS["extract"], width=3),
+        line=dict(color=COLORS["extract"], width=2),
         name="Duct", hoverinfo="none", showlegend=False,
     ))
 
-    return fig.data
+    return traces
 
 
-# ── Module-level cache (built once) ──────────────────────────────────
+# ── Module-level cache ───────────────────────────────────────────────
 _STATIC_TRACES = tuple(_build_static_traces())
 
 
@@ -292,160 +266,139 @@ def build_3d_lab_figure(
     e_stop=False,
 ):
     """
-    Build 3D lab figure with full state-reactive visualization.
+    Build 3D lab figure with smooth state-reactive visualization.
 
-    Static geometry is cached; dynamic elements change per call:
-      - Processing chamber moves with X-Y table
-      - Laser beam + glow + spark when firing
-      - Gas flow particles from tanks to chamber
+    Static geometry is cached; dynamic elements added per call:
+      - Processing chamber (position + color)
+      - Safety enclosure (color = state)
+      - Gas flow dots along fixed pipe path
       - Purge swirl inside chamber
-      - Safety enclosure color = green (locked) / red (open)
-      - E-stop flashes the enclosure red
+      - Laser beam (core + glow + spark)
+      - E-stop corner markers
     """
     fig = go.Figure()
     fig.add_traces(_STATIC_TRACES)
 
-    # ── Dynamic: Safety Enclosure (color changes with state) ─────────
-    all_locked = door_locked and chamber_locked and not e_stop
+    # ── Safety Enclosure (color reflects state) ──────────────────────
+    all_safe = door_locked and chamber_locked and not e_stop
     if e_stop:
-        cage_color = COLORS["cage_open"]
-        cage_opacity = 0.25
-    elif all_locked:
-        cage_color = COLORS["cage_locked"]
-        cage_opacity = 0.08
+        cage_color, cage_op = COLORS["cage_estop"], 0.20
+    elif all_safe:
+        cage_color, cage_op = COLORS["cage_safe"], 0.06
     else:
-        cage_color = COLORS["cage_open"]
-        cage_opacity = 0.12
+        cage_color, cage_op = COLORS["cage_warn"], 0.10
 
-    _add_box(fig, "Safety Enclosure",
-             TX - 0.2, TY - 0.2, 0, TW + 0.4, TD + 0.4, 2.2,
-             cage_color, opacity=cage_opacity, lighting=_LIT_GLASS)
+    fig.add_trace(go.Mesh3d(
+        x=[TX-0.2, TX+TW+0.2, TX+TW+0.2, TX-0.2, TX-0.2, TX+TW+0.2, TX+TW+0.2, TX-0.2],
+        y=[TY-0.2, TY-0.2, TY+TD+0.2, TY+TD+0.2, TY-0.2, TY-0.2, TY+TD+0.2, TY+TD+0.2],
+        z=[0,0,0,0, 2.2,2.2,2.2,2.2],
+        i=[0,0,0,0,4,4,2,2,0,0,1,1],
+        j=[1,2,4,5,5,6,3,6,1,3,2,6],
+        k=[2,3,5,6,6,7,6,7,4,7,5,5],
+        color=cage_color, opacity=cage_op,
+        name="Safety Enclosure", showlegend=True,
+        lighting=_LIT_GLASS,
+        hovertemplate="<b>Safety Enclosure</b><extra></extra>",
+    ))
 
-    # ── Dynamic: Processing Chamber (moves with X-Y table) ───────────
-    cham_x = TX + 0.5 + pos_x_mm / 1000.0
-    cham_y = TY + 0.3 + pos_y_mm / 1000.0
-    cham_z = XY_Z + 0.1
+    # ── Processing Chamber (moves with X-Y) ──────────────────────────
+    cx = TX + 0.5 + pos_x_mm / 1000.0
+    cy = TY + 0.3 + pos_y_mm / 1000.0
+    cz = XY_Z + 0.1
 
-    # Chamber color reflects state
     if laser_active:
-        cham_color = COLORS["chamber_hot"]
+        c_color = COLORS["chamber_laser"]
     elif gas_purging:
-        cham_color = COLORS["gas_purge"]
+        c_color = COLORS["chamber_purge"]
     else:
-        cham_color = COLORS["chamber"]
+        c_color = COLORS["chamber_idle"]
 
-    _add_box(fig, "Processing Chamber",
-             cham_x, cham_y, cham_z, 0.5, 0.4, 0.3,
-             cham_color,
-             lighting=dict(ambient=0.6, diffuse=0.8, specular=0.9, roughness=0.2))
+    fig.add_trace(_box("Processing Chamber", cx, cy, cz, 0.5, 0.4, 0.3,
+                       c_color,
+                       lighting=dict(ambient=0.6, diffuse=0.8, specular=0.9, roughness=0.2)))
 
-    # ── Dynamic: Gas Flow Visualization ──────────────────────────────
+    # ── Gas Flow (dots along fixed pipe path) ────────────────────────
     if gas_flowing or gas_purging:
-        # Flow intensity (more particles for higher flow)
-        n_particles = int(6 + gas_flow_rate * 0.8)
-        np.random.seed(42)  # Deterministic positions for consistency
-
-        # Particles along pipe from tank to chamber
-        t_param = np.linspace(0.05, 0.95, n_particles)
-        # Path: tank valve → pipe bend → chamber inlet
-        pipe_xs = TANK1_CX + t_param * (cham_x + 0.1 - TANK1_CX)
-        pipe_ys = TANK1_CY - TANK_R + t_param * (cham_y + 0.2 - (TANK1_CY - TANK_R))
-        pipe_zs = TANK_H * 0.8 + t_param * (cham_z + 0.15 - TANK_H * 0.8)
-        # Add slight randomness for natural look
-        pipe_xs += np.random.uniform(-0.03, 0.03, n_particles)
-        pipe_ys += np.random.uniform(-0.03, 0.03, n_particles)
-
-        flow_color = COLORS["gas_purge"] if gas_purging else COLORS["gas_flow"]
-        particle_size = 4 if gas_purging else 3
+        flow_color = COLORS["purge_swirl"] if gas_purging else COLORS["gas_flow"]
+        # Scale number of dots with flow rate (min 4, max 10)
+        n_dots = min(10, max(4, int(gas_flow_rate / 3)))
+        # Evenly spaced along the pre-computed path
+        t = np.linspace(0, len(_FLOW_PATH) - 1, n_dots)
+        idxs = t.astype(int)
+        fracs = t - idxs
+        idxs_next = np.minimum(idxs + 1, len(_FLOW_PATH) - 1)
+        # Interpolate positions along path
+        pts = _FLOW_PATH[idxs] * (1 - fracs[:, None]) + _FLOW_PATH[idxs_next] * fracs[:, None]
 
         fig.add_trace(go.Scatter3d(
-            x=pipe_xs, y=pipe_ys, z=pipe_zs,
+            x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
             mode="markers",
-            marker=dict(
-                size=particle_size,
-                color=flow_color,
-                opacity=0.7,
-                symbol="circle",
-            ),
+            marker=dict(size=4, color=flow_color, opacity=0.75, symbol="circle"),
             name="Gas Flow",
-            hovertemplate="Ar flow<extra></extra>",
+            hovertemplate=f"Argon {gas_flow_rate:.1f} L/min<extra></extra>",
         ))
 
-        # Purge: swirling particles inside the chamber
+        # Purge: gentle spiral inside chamber
         if gas_purging:
-            n_swirl = 12
-            angles = np.linspace(0, 4 * np.pi, n_swirl)
-            r_swirl = 0.12
-            sx = cham_x + 0.25 + r_swirl * np.cos(angles)
-            sy = cham_y + 0.2 + r_swirl * np.sin(angles)
-            sz = cham_z + 0.05 + np.linspace(0.02, 0.25, n_swirl)
-
+            n_s = 8
+            a = np.linspace(0, 3 * np.pi, n_s)
             fig.add_trace(go.Scatter3d(
-                x=sx, y=sy, z=sz,
-                mode="markers+lines",
-                marker=dict(size=3, color=COLORS["gas_purge"], opacity=0.6),
-                line=dict(color=COLORS["gas_purge"], width=2),
-                name="Purge Swirl",
-                hovertemplate="Purging O₂<extra></extra>",
+                x=cx + 0.25 + 0.10 * np.cos(a),
+                y=cy + 0.20 + 0.10 * np.sin(a),
+                z=cz + np.linspace(0.03, 0.27, n_s),
+                mode="lines+markers",
+                line=dict(color=COLORS["purge_swirl"], width=2),
+                marker=dict(size=3, color=COLORS["purge_swirl"], opacity=0.6),
+                name="Purge",
+                hovertemplate="Purging chamber<extra></extra>",
             ))
 
-    # ── Dynamic: Laser Beam ──────────────────────────────────────────
+    # ── Laser Beam ───────────────────────────────────────────────────
     if laser_active:
-        head_z = cham_z + 0.7
-        beam_bottom = cham_z + 0.3
+        beam_top = HEAD_Z
+        beam_bot = cz + 0.3
+        w = max(3, laser_power_pct / 12)
 
-        # Outer glow beam (wider, dimmer)
-        beam_width = max(3, laser_power_pct / 10)
+        # Glow (wide, transparent)
         fig.add_trace(go.Scatter3d(
-            x=[HEAD_X, HEAD_X],
-            y=[HEAD_Y, HEAD_Y],
-            z=[head_z, beam_bottom],
+            x=[HEAD_X, HEAD_X], y=[HEAD_Y, HEAD_Y], z=[beam_top, beam_bot],
             mode="lines",
-            line=dict(color=COLORS["beam_glow"], width=beam_width + 4),
-            name="Beam Glow", hoverinfo="none",
-            showlegend=False, opacity=0.3,
+            line=dict(color=COLORS["beam_glow"], width=w + 6),
+            name="Beam Glow", showlegend=False, hoverinfo="none",
         ))
-
-        # Core beam (bright, thin)
+        # Core (bright, thin)
         fig.add_trace(go.Scatter3d(
-            x=[HEAD_X, HEAD_X],
-            y=[HEAD_Y, HEAD_Y],
-            z=[head_z, beam_bottom],
+            x=[HEAD_X, HEAD_X], y=[HEAD_Y, HEAD_Y], z=[beam_top, beam_bot],
             mode="lines",
-            line=dict(color=COLORS["core_beam"], width=beam_width),
+            line=dict(color=COLORS["laser_beam_core"], width=w),
             name="Laser Beam", hoverinfo="none",
         ))
-
-        # Impact zone — spark + heat glow
+        # Spark cluster at impact
         fig.add_trace(go.Scatter3d(
-            x=[HEAD_X, HEAD_X - 0.02, HEAD_X + 0.02, HEAD_X, HEAD_X],
-            y=[HEAD_Y, HEAD_Y - 0.02, HEAD_Y + 0.02, HEAD_Y + 0.01, HEAD_Y - 0.01],
-            z=[beam_bottom, beam_bottom + 0.02, beam_bottom + 0.03,
-               beam_bottom + 0.04, beam_bottom + 0.02],
+            x=[HEAD_X, HEAD_X-0.015, HEAD_X+0.015, HEAD_X+0.01, HEAD_X-0.01],
+            y=[HEAD_Y, HEAD_Y-0.015, HEAD_Y+0.015, HEAD_Y+0.01, HEAD_Y-0.01],
+            z=[beam_bot, beam_bot+0.02, beam_bot+0.025, beam_bot+0.035, beam_bot+0.015],
             mode="markers",
-            marker=dict(
-                size=[10, 5, 5, 4, 4],
-                color=["#ffff00", "#ff8c00", "#ff6347", "#ff4500", "#ffa500"],
-                opacity=0.9,
-                symbol="diamond",
-            ),
-            name="Plasma Spark", hoverinfo="none",
+            marker=dict(size=[8, 4, 4, 3, 3],
+                        color=[COLORS["spark"], "#ff9933", "#ff7733", "#ff6622", "#ffaa44"],
+                        opacity=0.85),
+            name="Spark", hoverinfo="none",
         ))
 
-    # ── Dynamic: E-Stop Warning ──────────────────────────────────────
+    # ── E-Stop Markers ───────────────────────────────────────────────
     if e_stop:
-        # Big red warning markers at the four corners of the enclosure
-        corners_x = [TX - 0.2, TX + TW + 0.2, TX - 0.2, TX + TW + 0.2]
-        corners_y = [TY - 0.2, TY - 0.2, TY + TD + 0.2, TY + TD + 0.2]
-        corners_z = [2.2, 2.2, 2.2, 2.2]
+        ex = [TX-0.15, TX+TW+0.15, TX+TW/2]
+        ey = [TY+TD/2, TY+TD/2, TY-0.15]
+        ez = [2.0, 2.0, 2.0]
         fig.add_trace(go.Scatter3d(
-            x=corners_x, y=corners_y, z=corners_z,
+            x=ex, y=ey, z=ez,
             mode="markers+text",
-            marker=dict(size=12, color="#ef4444", symbol="x", opacity=0.9),
-            text=["⚠", "⚠", "⚠", "⚠"],
+            marker=dict(size=10, color="#ef4444", symbol="x", opacity=0.85),
+            text=["E-STOP", "", ""],
             textposition="top center",
-            textfont=dict(size=14, color="#ef4444"),
-            name="E-STOP", hovertemplate="EMERGENCY STOP<extra></extra>",
+            textfont=dict(size=12, color="#ef4444"),
+            name="E-STOP",
+            hovertemplate="EMERGENCY STOP ACTIVE<extra></extra>",
         ))
 
     # ── Apply layout ─────────────────────────────────────────────────

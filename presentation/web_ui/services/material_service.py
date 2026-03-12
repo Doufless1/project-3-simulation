@@ -82,6 +82,17 @@ def load_materials() -> dict:
         ),
         "composition": "WC 88% · Co 12%",
     }
+    materials["wc_nicr"] = {
+        "label": "WC-NiCr (HVOF)",
+        "category": "standard",
+        "obj": Material(
+            name="WC-NiCr (HVOF Coating)",
+            absorption=0.4, thermal_conductivity=12.0,
+            density=13500.0, specific_heat=350.0,
+            t_ambient=20.0, t_melt=1350.0, t_vaporization=2800.0,
+        ),
+        "composition": "WC 80% · Ni 12% · Cr 8%",
+    }
     materials["inconel718"] = {
         "label": "Inconel 718",
         "category": "standard",

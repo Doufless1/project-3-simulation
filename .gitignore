@@ -1,12 +1,36 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-discovered_materials.json
+.venv/
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+
+# IDEs
 .vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project Specific
+output/
+*.png
+*.pdf
+*.log
+discovered_materials.json
+discovery/discovered_materials.json
+assets/icons/*.svg
