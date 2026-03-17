@@ -9,6 +9,10 @@ Or:
 """
 
 import sys
+import os
+
+# Add the project root to sys.path so 'lab_control' can be found
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lab_control.presentation.dashboard import run
 

@@ -4,13 +4,12 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.venv/
+.env
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
-.venv/
-.env
+*.bak/
 
 # Testing
 .pytest_cache/
@@ -19,18 +18,37 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
-# IDEs
+# IDEs & OS
 .vscode/
 .idea/
 *.swp
 *.swo
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# Project Specific
+# Unity (UnityHVOF project)
+UnityHVOF/[Ll]ibrary/
+UnityHVOF/[Tt]emp/
+UnityHVOF/[Oo]bj/
+UnityHVOF/[Ll]ogs/
+UnityHVOF/[Uu]ser[Ss]ettings/
+UnityHVOF/[Aa]sset[Ss]toreInProgress/
+UnityHVOF/Assets/AddressableAssetsData/*/*.bin*
+UnityHVOF/Assets/StreamingAssets/aa/*
+*.csproj
+*.unitypackage
+*.sln
+
+# Project Generated Artifacts & Data
 output/
-*.png
-*.pdf
 *.log
 discovered_materials.json
 discovery/discovered_materials.json
 assets/icons/*.svg
+
+# Local reports/plots
+material_comparison.png
+ultimate_fluence_map.png
+ultimate_melt_profile.png
+*.pdf
