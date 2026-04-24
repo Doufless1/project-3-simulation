@@ -301,7 +301,7 @@ namespace HVOFSim.Presentation.Scene
             root.transform.SetParent(parent, false);
             Vector2 mid = (leftSplit + rightSplit) * 0.5f;
             root.transform.position = new Vector3(mid.x, wallHeight * 0.5f, mid.y);
-            root.transform.rotation = Quaternion.Euler(0f, YawFromSegment(leftSplit, rightSplit), 0f);
+            root.transform.rotation = Quaternion.Euler(0f, YawFromSegment(leftSplit, rightSplit) +270f, 0f);
 
             float length  = opening;
             float height  = wallHeight;
@@ -390,7 +390,7 @@ namespace HVOFSim.Presentation.Scene
             float height = toY - fromY;
 
             go.transform.position = new Vector3(mid.x, midY, mid.y);
-            go.transform.rotation = Quaternion.Euler(0f, YawFromSegment(a, b), 0f);
+            go.transform.rotation = Quaternion.Euler(0f, YawFromSegment(a, b) - 90f, 0f);
             go.transform.localScale = new Vector3(length, height, thickness);
 
             go.GetComponent<Renderer>().sharedMaterial = mat;
@@ -558,14 +558,17 @@ namespace HVOFSim.Presentation.Scene
             root.transform.SetParent(parent, false);
             Vector2 mid = (a + b) * 0.5f;
             root.transform.position = new Vector3(mid.x, doorHeight * 0.5f, mid.y);
-            root.transform.rotation = Quaternion.Euler(0f, YawFromSegment(a, b), 0f);
+            root.transform.rotation = Quaternion.Euler(0f, YawFromSegment(a, b) - 90f, 0f);
 
             // Frame (left, right, top) slightly inset
             float ft = 0.06f;
             float fd = wallThickness * 1.25f;
             AddChildCube(root.transform, "FrameTop",   new Vector3(0f,  doorHeight * 0.5f - ft * 0.5f, 0f), new Vector3(width, ft, fd), mats.DoorFrame);
-            AddChildCube(root.transform, "FrameLeft",  new Vector3(-width * 0.5f + ft * 0.5f, 0f, 0f),     new Vector3(ft, doorHeight, fd), mats.DoorFrame);
-            AddChildCube(root.transform, "FrameRight", new Vector3(+width * 0.5f - ft * 0.5f, 0f, 0f),     new Vector3(ft, doorHeight, fd), mats.DoorFrame);
+            // User-requested override: only FrontWall_Door left frame keeps X thickness = 0.3.
+            float frameLeftX = name == "FrontWall_Door" ? 0.3f : ft;
+            AddChildCube(root.transform, "FrameLeft",  new Vector3(-width * 0.5f + frameLeftX * 0.5f, 0f, 0f),     new Vector3(frameLeftX, doorHeight, fd), mats.DoorFrame);
+            float frameRightX = name == "FrontWall_Door" ? 0.3f : ft;
+            AddChildCube(root.transform, "FrameRight", new Vector3(+width * 0.5f - frameRightX * 0.5f, 0f, 0f),     new Vector3(frameRightX, doorHeight, fd), mats.DoorFrame);
 
             // Leaf — width slightly less than opening to clear frame. We use a
             // `leafPivot` (unit scale) so attached hardware (handles, hinges,
