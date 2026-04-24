@@ -64,8 +64,6 @@ namespace HVOFSim.Presentation.Scene
         private Material _tableMat;
         private Material _laserMat;
         private Material _tankMat;
-        private Material _floorMat;
-        private Material _wallMat;
         private Material _enclosureMat;
         private Material _workpieceMat;
         private Material _hazardMat;
@@ -107,8 +105,105 @@ namespace HVOFSim.Presentation.Scene
             CreateCableTrays();
             CreateEquipmentLabels();
             CreateEStopButton();
-            CreateCeilingPanels();
+            // Ceiling fluorescent panels are now owned by LabRoomGeometry
+            // (the room shell builder) to keep architecture in one place.
             SetupPostProcessing();
+
+            // After every sub-builder runs, rearrange/scale equipment so it
+            // actually fits inside the real 2.76 x 6.02 m room polygon.
+            ArrangeEquipmentForRoom();
+        }
+
+        // ── Equipment arrangement for the real room ──────────────────────
+        //
+        // Approximates the real-life HVOF lab layout inside the irregular
+        // 2.76 (X) x 6.02 (Z) m room built by LabRoomGeometry:
+        //   Z = +3.01 : front wall with entry door (126 cm clearance)
+        //   Z = -3.01 : back wall with interior door (127 cm)
+        //   X = +1.38 : right wall (long window band)
+        //   X = -1.38 : left/diagonal wall
+        //
+        // Placement (approximate, safe clearances):
+        //   - Command_Center (desk + monitor)  : near entry, faces chamber
+        //   - EStopButton                      : on the desk
+        //   - Chamber + Table + Laser          : center-back
+        //   - Gas tanks                        : back-right corner
+        //   - Hazard strips / cable trays / gas cables : disabled (authored
+        //     for the old 15 m rectangular lab; coordinates no longer valid)
+        private void ArrangeEquipmentForRoom()
+        {
+            // 1) Chamber, table, laser: group in center-back. Scale down so the
+            //    existing primitives fit within the narrow 2.76 m width.
+            if (_chamberRoot != null)
+            {
+                _chamberRoot.transform.localScale    = new Vector3(0.55f, 0.65f, 0.55f);
+                _chamberRoot.transform.localPosition = new Vector3(0.15f, 0f, -1.1f);
+            }
+            if (_tableRoot != null)
+            {
+                _tableRoot.transform.localScale    = new Vector3(0.55f, 0.55f, 0.55f);
+                _tableRoot.transform.localPosition = new Vector3(0.15f, 0f, -1.1f);
+            }
+            if (_laserUnitRoot != null)
+            {
+                // Laser gantry bridge is 3 m wide in script. Scale down to ~2.1 m.
+                _laserUnitRoot.transform.localScale    = new Vector3(0.70f, 0.75f, 0.70f);
+                // The laser cabinet is authored at local x = -1.5 inside the root,
+                // so pushing the root to +1.1 places the cabinet near x = 0 and
+                // the gantry centered over the chamber at (0.15, y, -1.1).
+                _laserUnitRoot.transform.localPosition = new Vector3(1.20f, 0f, -1.1f);
+            }
+
+            // 2) Gas tanks: back-right corner along the window band.
+            if (_gasSystemRoot != null)
+            {
+                _gasSystemRoot.transform.localScale    = new Vector3(0.55f, 0.65f, 0.55f);
+                // Internal tanks are at local (2.5, 0, -2) and (3.0, 0, -2).
+                // After scale (0.55) that is (1.375, 0, -1.1) and (1.65, 0, -1.1).
+                // Offset the root by (-0.6, 0, -1.0) to land tanks near
+                // (+0.78, 0, -2.1) and (+1.05, 0, -2.1): inside the right wall.
+                _gasSystemRoot.transform.localPosition = new Vector3(-0.60f, 0f, -1.0f);
+            }
+
+            // 3) Command Center (desk + monitor) and E-Stop: near entry doorway.
+            var commandCenter = transform.Find("Command_Center");
+            if (commandCenter != null)
+            {
+                commandCenter.localScale    = new Vector3(0.70f, 0.80f, 0.70f);
+                commandCenter.localPosition = new Vector3(0.10f, 0f, 2.20f);
+                // Rotate 180 so monitor faces the chamber (back of room).
+                commandCenter.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            }
+
+            var estop = transform.Find("EStopButton");
+            if (estop != null)
+            {
+                // Put it on the desk (desk top is at y ≈ 0.95 * 0.8 = 0.76 m).
+                estop.localPosition = new Vector3(-0.55f, 0.78f, 2.05f);
+                estop.localScale    = Vector3.one;
+            }
+
+            // 4) Hide / destroy objects authored for the old 15 m room whose
+            //    hard-coded world coordinates make no sense here. Safer than
+            //    trying to re-derive their positions.
+            DisableByName("CableTray");
+            DisableByName("CableRiser");
+            DisableByName("GasCables");
+            DisableByName("WarningPulse");
+            foreach (Transform t in transform)
+            {
+                if (t.name == "HazardStrip") t.gameObject.SetActive(false);
+                // Equipment labels were placed at absolute world coords for the
+                // old room; they float awkwardly in the new one. Disable until
+                // a follow-up gives them proper local anchors on equipment.
+                if (t.name.StartsWith("Label_")) t.gameObject.SetActive(false);
+            }
+        }
+
+        private void DisableByName(string goName)
+        {
+            var t = transform.Find(goName);
+            if (t != null) t.gameObject.SetActive(false);
         }
 
         public void UpdateChamberState(InterlockStatus chamberInterlock, GasState gasState)
@@ -212,13 +307,9 @@ namespace HVOFSim.Presentation.Scene
             _tankMat.SetFloat("_Metallic", 0.6f);
             _tankMat.SetFloat("_Smoothness", 0.5f);
 
-            // Reflective epoxy floor
-            _floorMat = new Material(shader) { color = new Color(0.12f, 0.12f, 0.14f) };
-            _floorMat.SetFloat("_Metallic", 0.15f);
-            _floorMat.SetFloat("_Smoothness", 0.85f);
-
-            _wallMat = new Material(shader) { color = new Color(0.22f, 0.22f, 0.25f) };
-            _wallMat.SetFloat("_Smoothness", 0.3f);
+            // Floor and wall materials are now owned by RoomMaterials (photo-matched
+            // cream/white palette) and applied via LabRoomGeometry — see
+            // CreateFloorAndWalls().
 
             _enclosureMat = new Material(shader) { color = new Color(0.1f, 0.2f, 0.35f, 0.2f) };
             SetTransparent(_enclosureMat);
@@ -254,75 +345,10 @@ namespace HVOFSim.Presentation.Scene
 
         private void CreateFloorAndWalls()
         {
-            // Main floor
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            floor.name = "Floor";
-            floor.transform.SetParent(transform);
-            floor.transform.localScale = new Vector3(15f, 0.1f, 15f);
-            floor.transform.localPosition = new Vector3(0, -0.05f, 0);
-            floor.GetComponent<Renderer>().material = _floorMat;
-
-            // Subtle floor grid lines (emissive)
-            for (int i = -7; i <= 7; i++)
-            {
-                var lineX = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                lineX.name = "GridX";
-                lineX.transform.SetParent(transform);
-                lineX.transform.localScale = new Vector3(15f, 0.005f, 0.02f);
-                lineX.transform.localPosition = new Vector3(0, 0.002f, i * 1f);
-                lineX.GetComponent<Renderer>().material = _emissiveBlueMat;
-
-                var lineZ = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                lineZ.name = "GridZ";
-                lineZ.transform.SetParent(transform);
-                lineZ.transform.localScale = new Vector3(0.02f, 0.005f, 15f);
-                lineZ.transform.localPosition = new Vector3(i * 1f, 0.002f, 0);
-                lineZ.GetComponent<Renderer>().material = _emissiveBlueMat;
-            }
-
-            // Back wall
-            var backWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            backWall.name = "BackWall";
-            backWall.transform.SetParent(transform);
-            backWall.transform.localScale = new Vector3(15f, 6f, 0.15f);
-            backWall.transform.localPosition = new Vector3(0, 3f, -7.5f);
-            backWall.GetComponent<Renderer>().material = _wallMat;
-
-            // Left wall
-            var leftWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            leftWall.name = "LeftWall";
-            leftWall.transform.SetParent(transform);
-            leftWall.transform.localScale = new Vector3(0.15f, 6f, 15f);
-            leftWall.transform.localPosition = new Vector3(-7.5f, 3f, 0f);
-            leftWall.GetComponent<Renderer>().material = _wallMat;
-
-            // Right wall
-            var rightWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            rightWall.name = "RightWall";
-            rightWall.transform.SetParent(transform);
-            rightWall.transform.localScale = new Vector3(0.15f, 6f, 15f);
-            rightWall.transform.localPosition = new Vector3(7.5f, 3f, 0f);
-            rightWall.GetComponent<Renderer>().material = _wallMat;
-
-            // Ceiling
-            var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ceiling.name = "Ceiling";
-            ceiling.transform.SetParent(transform);
-            ceiling.transform.localScale = new Vector3(15f, 0.1f, 15f);
-            ceiling.transform.localPosition = new Vector3(0, 6f, 0);
-            ceiling.GetComponent<Renderer>().material = _wallMat;
-
-            // Front wall (transparent glass so camera can see inside)
-            var frontWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frontWall.name = "FrontWall";
-            frontWall.transform.SetParent(transform);
-            frontWall.transform.localScale = new Vector3(15f, 6f, 0.15f);
-            frontWall.transform.localPosition = new Vector3(0, 3f, 7.5f);
-            
-            var glassMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            glassMat.color = new Color(0.1f, 0.15f, 0.2f, 0.15f);
-            SetTransparent(glassMat);
-            frontWall.GetComponent<Renderer>().material = glassMat;
+            // Delegate the empty room shell (floor, walls, ceiling, windows,
+            // blinds, doors, skirting, fluorescent panels) to LabRoomGeometry
+            // so LabSceneBuilder stays focused on HVOF equipment.
+            LabRoomGeometry.Build(transform, LabRoomSpec.FromSketch(), RoomMaterials.PhotoMatch());
         }
 
         // ── Equipment Swapping Methods ───────────────────────────────
@@ -1067,40 +1093,6 @@ namespace HVOFSim.Presentation.Scene
             capMat.color = new Color(0.8f, 0.05f, 0.02f);
             capMat.SetColor("_EmissionColor", new Color(1.5f, 0.1f, 0.05f));
             cap.GetComponent<Renderer>().material = capMat;
-        }
-
-        private void CreateCeilingPanels()
-        {
-            // Emissive fluorescent panels on ceiling
-            var panelMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            panelMat.color = new Color(0.9f, 0.9f, 0.95f);
-            panelMat.EnableKeyword("_EMISSION");
-            panelMat.SetColor("_EmissionColor", new Color(1.5f, 1.5f, 1.6f));
-            panelMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-
-            CreateCeilingPanel(panelMat, new Vector3(-2f, 5.9f, -1f));
-            CreateCeilingPanel(panelMat, new Vector3(2f, 5.9f, -1f));
-            CreateCeilingPanel(panelMat, new Vector3(0f, 5.9f, -3f));
-        }
-
-        private void CreateCeilingPanel(Material mat, Vector3 pos)
-        {
-            var panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            panel.name = "CeilingLight";
-            panel.transform.SetParent(transform);
-            panel.transform.localScale = new Vector3(1.5f, 0.05f, 0.5f);
-            panel.transform.localPosition = pos;
-            panel.GetComponent<Renderer>().material = mat;
-
-            // Paired point light to actually illuminate
-            var lightGO = new GameObject("CeilingLightSrc");
-            lightGO.transform.SetParent(panel.transform);
-            lightGO.transform.localPosition = new Vector3(0, -0.5f, 0);
-            var lt = lightGO.AddComponent<Light>();
-            lt.type = LightType.Point;
-            lt.color = new Color(0.95f, 0.95f, 1f);
-            lt.intensity = 3f;
-            lt.range = 5f;
         }
 
         private void SetupPostProcessing()
