@@ -18,22 +18,21 @@ namespace HVOFSim.Presentation.Scene
         public const float CmToM = 0.01f;
 
         // ── Primary envelope (floor plan, in cm) ─────────────────────────
-        // Back wall width (the narrow end of the room, behind the interior door).
+        // Room is now a simple rectangle matching the photo reference:
+        //   * Length (along right wall)        = 500 cm
+        //   * Width (front-to-back depth)       = 121 cm
+        //   * Ceiling height                    = 276 cm
+        //
+        // The previous fields are kept to preserve the call surface of the
+        // geometry builder. For a rectangular room we set:
+        //   BackWallWidthCm == CenterDepthCm   -> back wall spans full width
+        //   LeftDiagonalCm  == RightWallLength -> "diagonal" collapses onto the
+        //                                         true left wall (no diagonal).
         public float BackWallWidthCm { get; set; } = 127f;
-
-        // Main center section depth (front-to-back at the widest part).
-        public float CenterDepthCm { get; set; } = 276f;
-
-        // Right side long wall (the wall carrying the long window band).
-        public float RightWallLengthCm { get; set; } = 602f;
-
-        // Right side extension at the top (back-right jog).
-        public float RightTopExtensionCm { get; set; } = 88f;
-
-        // Left diagonal wall length.
-        public float LeftDiagonalCm { get; set; } = 500f;
-
-        // Ceiling height (vertical).
+        public float CenterDepthCm   { get; set; } = 127f;
+        public float RightWallLengthCm { get; set; } = 500f;
+        public float RightTopExtensionCm { get; set; } = 0f;
+        public float LeftDiagonalCm  { get; set; } = 500f;
         public float CeilingHeightCm { get; set; } = 276f;
 
         // ── Fixtures / niches ────────────────────────────────────────────
@@ -52,13 +51,34 @@ namespace HVOFSim.Presentation.Scene
         public float AngledFeatureDepthCm  { get; set; } = 14f;
 
         // ── Doorway and doors ────────────────────────────────────────────
-        // Entry doorway clearance on the front wall (126 cm opening).
-        public float EntryDoorClearanceCm { get; set; } = 126f;
+        // Entry doorway clearance on the front wall (90 cm opening).
+        public float EntryDoorClearanceCm { get; set; } = 90f;
 
         // Door leaves (standard residential/office door).
-        public float DoorLeafWidthCm  { get; set; } = 90f;
-        public float DoorLeafHeightCm { get; set; } = 210f;
+        public float DoorLeafWidthCm    { get; set; } = 85f;
+        public float DoorLeafHeightCm   { get; set; } = 210f;
         public float DoorLeafThicknessCm { get; set; } = 4f;
+
+        // Distance from the LEFT edge of the front wall to the LEFT side of the
+        // door opening. Small value = door sits hard against the left side of
+        // the front wall (matches the photo where the door is immediately to
+        // the left when you walk in).
+        public float FrontDoorLeftMarginCm { get; set; } = 3f;
+
+        // Second entry door on the LEFT wall, around the corner from the
+        // back-wall door. The left wall is split into a short segment near
+        // the back-left corner that carries this door; the rest of the left
+        // wall remains solid (and is where the VG5 sign lives).
+        public float LeftWallDoorSegmentLengthCm { get; set; } = 110f;
+        public float LeftWallDoorBackMarginCm    { get; set; } = 8f;
+
+        // ── Left-wall room sign ("VG5 / Laboratori 2") ───────────────────
+        public string SignPrimaryText   { get; set; } = "VG5  004";
+        public string SignSecondaryText { get; set; } = "Laboratori 2";
+        public float  SignWidthCm       { get; set; } = 35f;
+        public float  SignHeightCm      { get; set; } = 18f;
+        public float  SignHeightFromFloorCm { get; set; } = 170f;
+        public float  SignDistanceFromFrontCm { get; set; } = 40f;
 
         // ── Right wall window band (the 40 x 590 narrow strip) ──────────
         // 590 cm long window band running along the right wall.
