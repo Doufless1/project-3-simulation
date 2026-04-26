@@ -27,6 +27,7 @@
 // ============================================================================
 
 using UnityEngine;
+using TMPro;
 using Material = UnityEngine.Material;
 
 namespace HVOFSim.Presentation.Scene
@@ -154,8 +155,17 @@ namespace HVOFSim.Presentation.Scene
             float h = g.CeilingH;
             const float thick = 0.08f;    // 8 cm drywall
 
-            // 1) Right wall (P0 → P1): floor-to-ceiling glass curtain wall
-            //    (matches photo of tall aluminum-framed glazing).
+            // Photo-matched rectangular storage room:
+            //   - Right wall (P0 → P1)  : floor-to-ceiling glass curtain wall.
+            //   - Back wall  (P1 → P2)  : solid (no door).
+            //   - Left wall  (P2 → P3)  : solid + "VG5 / Laboratori 2" sign.
+            //   - Front wall (P4 → P0)  : solid with ONE door aligned to the
+            //                              LEFT side (the door you see first
+            //                              when walking in).
+            //   - Segment P3 → P4 is degenerate for a rectangle (P3 == P4) and
+            //     is skipped intentionally.
+
+            // Right wall — full floor-to-ceiling glass curtain wall.
             BuildGlassCurtainWall(
                 parent: parent,
                 name: "RightWall",
@@ -164,47 +174,54 @@ namespace HVOFSim.Presentation.Scene
                 wallThickness: thick,
                 glazingLength: spec.RightWindowLengthCm * LabRoomSpec.CmToM,
                 mats: mats,
-                includeDoorPanel: true);
+                includeDoorPanel: false);
 
-            // 2) Back wall (P1 → P2) with a door in it (interior door, photo 2).
+            // Front wall is now solid — the door lives at the opposite end.
+            BuildSolidWall(parent, "FrontWall", g.P4, g.P0, h, thick, mats.Wall);
+
+            // Left wall splits into:
+            //   1) A short solid segment near the back-left corner with a
+            //      second entry door (around the corner from the back door).
+            //   2) The remainder of the left wall stays solid and carries the
+            //      VG5 / Laboratori 2 sign.
+            float leftDoorSegLen = spec.LeftWallDoorSegmentLengthCm * LabRoomSpec.CmToM;
+            // P2 = back-left (-Z), P3 = front-left (+Z). Door segment hugs P2.
+            Vector2 leftDoorEnd = LerpSeg(g.P2, g.P3, leftDoorSegLen);
+
+            BuildWallWithDoor(
+                parent: parent,
+                name: "LeftBackWall",
+                a: g.P2, b: leftDoorEnd,
+                wallHeight: h,
+                wallThickness: thick,
+                doorWidth:  spec.EntryDoorClearanceCm * LabRoomSpec.CmToM,
+                doorHeight: spec.DoorLeafHeightCm * LabRoomSpec.CmToM,
+                mats: mats,
+                spec: spec,
+                doorStyle: DoorStyle.Entry,
+                leftMarginMeters: spec.LeftWallDoorBackMarginCm * LabRoomSpec.CmToM);
+
+            BuildSolidWall(parent, "LeftWall", leftDoorEnd, g.P3, h, thick, mats.Wall);
+            BuildSignPlate(parent, leftDoorEnd, g.P3, spec, mats);
+
+            // Back wall — single entry door. Anchored to the -X side of the
+            // wall so that when the in-room camera looks at the back wall,
+            // the door reads on the RIGHT (matches the photo where the door
+            // is hard against the right side of the back wall).
+            // a = P2 (back-left, -X), b = P1 (back-right, +X); leftMarginMeters
+            // is therefore measured from the -X end.
             BuildWallWithDoor(
                 parent: parent,
                 name: "BackWall",
-                a: g.P1, b: g.P2,
+                a: g.P2, b: g.P1,
                 wallHeight: h,
                 wallThickness: thick,
-                doorWidth:  spec.DoorLeafWidthCm  * LabRoomSpec.CmToM,
+                doorWidth:  spec.EntryDoorClearanceCm * LabRoomSpec.CmToM,
                 doorHeight: spec.DoorLeafHeightCm * LabRoomSpec.CmToM,
                 mats: mats,
                 spec: spec,
-                doorStyle: DoorStyle.Interior);
-
-            // 3) Diagonal wall (P2 → P3), 5.00 m: same glass curtain wall.
-            BuildGlassCurtainWall(
-                parent: parent,
-                name: "DiagonalWall",
-                a: g.P2, b: g.P3,
-                wallHeight: h,
-                wallThickness: thick,
-                glazingLength: (spec.LeftDiagonalCm - 20f) * LabRoomSpec.CmToM,
-                mats: mats,
-                includeDoorPanel: false);
-
-            // 4) Left-front wall segment (P3 → P4), ~1.25 m, solid.
-            BuildSolidWall(parent, "LeftFrontWall", g.P3, g.P4, h, thick, mats.Wall);
-
-            // 5) Front wall (P4 → P0) with the 1.26 m entry doorway.
-            BuildWallWithDoor(
-                parent: parent,
-                name: "FrontWall",
-                a: g.P4, b: g.P0,
-                wallHeight: h,
-                wallThickness: thick,
-                doorWidth:  g.DoorClr,                           // full 1.26 m opening
-                doorHeight: spec.DoorLeafHeightCm * LabRoomSpec.CmToM,
-                mats: mats,
-                spec: spec,
-                doorStyle: DoorStyle.Entry);
+                doorStyle: DoorStyle.Entry,
+                leftMarginMeters: spec.FrontDoorLeftMarginCm * LabRoomSpec.CmToM);
         }
 
         // ── Wall primitives ─────────────────────────────────────────────
@@ -215,17 +232,95 @@ namespace HVOFSim.Presentation.Scene
             PlaceWallSegment(parent, name, a, b, fromY: 0f, toY: height, thick, mat);
         }
 
+        // ── Left-wall "VG5 / Laboratori 2" room sign ────────────────────
+        //
+        // Mounts a small plate proud of the interior face of the left wall,
+        // near the front (entrance) side of the room. Replicates the black
+        // vertical stripe visible in the reference photograph.
+        private static void BuildSignPlate(Transform parent, Vector2 a, Vector2 b,
+                                           LabRoomSpec spec, RoomMaterials mats)
+        {
+            float segLen = Vector2.Distance(a, b);
+            if (segLen < 0.1f) return;
+
+            // Position the sign near the front edge (the `b` end of the left
+            // wall, since BuildShell passes a = P2 (back) → b = P3 (front)).
+            float distFromFront = spec.SignDistanceFromFrontCm * LabRoomSpec.CmToM;
+            float offsetAlong = Mathf.Clamp(segLen - distFromFront, 0.05f, segLen - 0.05f);
+            Vector2 mid = LerpSeg(a, b, offsetAlong);
+            float yaw = YawFromSegment(a, b);
+            float signY = spec.SignHeightFromFloorCm * LabRoomSpec.CmToM;
+
+            var root = new GameObject("LeftWallSign");
+            root.transform.SetParent(parent, false);
+            root.transform.position = new Vector3(mid.x, signY, mid.y);
+            root.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+            float w = spec.SignWidthCm  * LabRoomSpec.CmToM;
+            float hh = spec.SignHeightCm * LabRoomSpec.CmToM;
+            // Interior side of the wall (room side) is at local -Z when the
+            // yaw is taken from (a→b) direction for a left wall (wall normal
+            // then points toward +X room interior along local +Z negative).
+            // Empirically we offset a few cm into the room for visibility.
+            float proud = 0.015f;
+
+            // Backing plate (brushed aluminum face)
+            AddChildCube(root.transform, "Plate", new Vector3(0f, 0f, -proud),
+                         new Vector3(w, hh, 0.02f), mats.BrushedMetal);
+
+            // Black vertical stripe on the left edge of the plate
+            float stripeW = Mathf.Min(0.05f, w * 0.18f);
+            AddChildCube(root.transform, "Stripe",
+                         new Vector3(-w * 0.5f + stripeW * 0.5f, 0f, -proud - 0.003f),
+                         new Vector3(stripeW, hh, 0.022f), mats.CurtainFrame);
+
+            // TextMeshPro labels on the plate
+            AddSignText(root.transform, "SignPrimary", spec.SignPrimaryText,
+                        new Vector3(stripeW * 0.8f, hh * 0.22f, -proud - 0.012f),
+                        new Vector2(w - stripeW - 0.01f, hh * 0.45f),
+                        fontSize: 0.55f, color: new Color(0.1f, 0.2f, 0.45f));
+
+            AddSignText(root.transform, "SignSecondary", spec.SignSecondaryText,
+                        new Vector3(stripeW * 0.8f, -hh * 0.28f, -proud - 0.012f),
+                        new Vector2(w - stripeW - 0.01f, hh * 0.4f),
+                        fontSize: 0.4f, color: new Color(0.1f, 0.2f, 0.45f));
+        }
+
+        private static void AddSignText(Transform parent, string name, string text,
+                                        Vector3 localPos, Vector2 size, float fontSize, Color color)
+        {
+            var tmpGO = new GameObject(name);
+            tmpGO.transform.SetParent(parent, false);
+            tmpGO.transform.localPosition = localPos;
+            // Face the room (rotate 180° around Y so text reads correctly from
+            // the interior side of the left wall).
+            tmpGO.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+
+            var tmp = tmpGO.AddComponent<TextMeshPro>();
+            tmp.text = text;
+            tmp.alignment = TextAlignmentOptions.Left;
+            tmp.color = color;
+            tmp.fontSize = 4f;
+            tmp.rectTransform.sizeDelta = new Vector2(size.x / fontSize * 10f, size.y / fontSize * 10f);
+            tmpGO.transform.localScale = new Vector3(fontSize * 0.1f, fontSize * 0.1f, 1f);
+        }
+
         private static void BuildWallWithDoor(Transform parent, string name,
                                               Vector2 a, Vector2 b,
                                               float wallHeight, float wallThickness,
                                               float doorWidth, float doorHeight,
                                               RoomMaterials mats, LabRoomSpec spec,
-                                              DoorStyle doorStyle)
+                                              DoorStyle doorStyle,
+                                              float leftMarginMeters = -1f)
         {
             float segLen = Vector2.Distance(a, b);
             float opening = Mathf.Min(doorWidth, segLen - 0.05f);
-            float leftMargin = (segLen - opening) * 0.5f;
-            float rightMargin = leftMargin;
+            // When leftMarginMeters < 0 the opening is centered (default legacy
+            // behaviour). When >= 0 it is anchored that many meters from the
+            // `a` end, but never allowed to overflow the wall.
+            float leftMargin = leftMarginMeters < 0f
+                ? (segLen - opening) * 0.5f
+                : Mathf.Clamp(leftMarginMeters, 0f, segLen - opening);
 
             // Split points along the wall
             Vector2 leftSplit  = LerpSeg(a, b, leftMargin);
@@ -564,10 +659,12 @@ namespace HVOFSim.Presentation.Scene
             float ft = 0.06f;
             float fd = wallThickness * 1.25f;
             AddChildCube(root.transform, "FrameTop",   new Vector3(0f,  doorHeight * 0.5f - ft * 0.5f, 0f), new Vector3(width, ft, fd), mats.DoorFrame);
-            // User-requested override: only FrontWall_Door left frame keeps X thickness = 0.3.
-            float frameLeftX = name == "FrontWall_Door" ? 0.3f : ft;
+            // Entry-door side frames: slim jambs (8 cm) instead of the default
+            // thickness, so they look like real door casings and do not clip
+            // into the leaf in narrow walls.
+            float frameLeftX = style == DoorStyle.Entry ? 0.08f : ft;
             AddChildCube(root.transform, "FrameLeft",  new Vector3(-width * 0.5f + frameLeftX * 0.5f, 0f, 0f),     new Vector3(frameLeftX, doorHeight, fd), mats.DoorFrame);
-            float frameRightX = name == "FrontWall_Door" ? 0.3f : ft;
+            float frameRightX = style == DoorStyle.Entry ? 0.08f : ft;
             AddChildCube(root.transform, "FrameRight", new Vector3(+width * 0.5f - frameRightX * 0.5f, 0f, 0f),     new Vector3(frameRightX, doorHeight, fd), mats.DoorFrame);
 
             // Leaf — width slightly less than opening to clear frame. We use a
@@ -687,7 +784,7 @@ namespace HVOFSim.Presentation.Scene
             var panelMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             panelMat.color = new Color(0.92f, 0.92f, 0.95f);
             panelMat.EnableKeyword("_EMISSION");
-            panelMat.SetColor("_EmissionColor", new Color(1.8f, 1.8f, 1.9f));
+            panelMat.SetColor("_EmissionColor", new Color(0.6f, 0.6f, 0.65f));
             panelMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
             float y = g.CeilingH - 0.05f;
@@ -708,8 +805,8 @@ namespace HVOFSim.Presentation.Scene
                 var lt = lightGO.AddComponent<Light>();
                 lt.type = LightType.Point;
                 lt.color = new Color(0.98f, 0.98f, 1f);
-                lt.intensity = 3.5f;
-                lt.range = 5.5f;
+                lt.intensity = 1.1f;
+                lt.range = 3.5f;
             }
         }
 

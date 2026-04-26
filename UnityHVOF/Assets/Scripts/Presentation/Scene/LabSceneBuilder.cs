@@ -92,9 +92,11 @@ namespace HVOFSim.Presentation.Scene
             _gasSystemRoot = new GameObject("GasSystem");
             _gasSystemRoot.transform.SetParent(transform);
 
-            // Initial equipment creation based on defaults
+            // Initial equipment creation based on defaults. SwapChamber()
+            // already creates the XY table internally if one is missing
+            // (see CreateChamberModel) — calling CreateTable() here too would
+            // produce a duplicate stack of tables.
             SwapChamber(ChamberType.StandardAluminium, animate: false);
-            CreateTable();
             SwapLaserType(LaserType.YtterbiumFiber, animate: false);
             SwapGasTanks(GasType.Argon, animate: false);
 
@@ -116,70 +118,63 @@ namespace HVOFSim.Presentation.Scene
 
         // ── Equipment arrangement for the real room ──────────────────────
         //
-        // Approximates the real-life HVOF lab layout inside the irregular
-        // 2.76 (X) x 6.02 (Z) m room built by LabRoomGeometry:
-        //   Z = +3.01 : front wall with entry door (126 cm clearance)
-        //   Z = -3.01 : back wall with interior door (127 cm)
-        //   X = +1.38 : right wall (long window band)
-        //   X = -1.38 : left/diagonal wall
+        // Room is a rectangle 1.21 (X) x 5.00 (Z) x 2.76 (Y) m built by
+        // LabRoomGeometry. All equipment is aggressively compressed to fit.
         //
-        // Placement (approximate, safe clearances):
-        //   - Command_Center (desk + monitor)  : near entry, faces chamber
-        //   - EStopButton                      : on the desk
-        //   - Chamber + Table + Laser          : center-back
-        //   - Gas tanks                        : back-right corner
-        //   - Hazard strips / cable trays / gas cables : disabled (authored
-        //     for the old 15 m rectangular lab; coordinates no longer valid)
+        // Stations arranged along the long Z axis:
+        //   - Desk + Monitor (Command_Center)  : near the front  (z = +1.80 m)
+        //   - Chamber + Table + Laser          : middle          (z = -1.00 m)
+        //   - Gas tanks                        : along back wall (z = -1.55 m)
+        //
+        // Hazard strips / cable trays / labels from the old 15 m lab have
+        // hard-coded world coordinates that do not apply here and are disabled.
         private void ArrangeEquipmentForRoom()
         {
-            // 1) Chamber, table, laser: group in center-back. Scale down so the
-            //    existing primitives fit within the narrow 2.76 m width.
             if (_chamberRoot != null)
             {
-                _chamberRoot.transform.localScale    = new Vector3(0.55f, 0.65f, 0.55f);
-                _chamberRoot.transform.localPosition = new Vector3(0.15f, 0f, -1.1f);
+                _chamberRoot.transform.localScale    = new Vector3(0.25f, 0.40f, 0.25f);
+                _chamberRoot.transform.localPosition = new Vector3(0f, 0f, -1.00f);
             }
             if (_tableRoot != null)
             {
-                _tableRoot.transform.localScale    = new Vector3(0.55f, 0.55f, 0.55f);
-                _tableRoot.transform.localPosition = new Vector3(0.15f, 0f, -1.1f);
+                _tableRoot.transform.localScale    = new Vector3(0.25f, 0.30f, 0.25f);
+                _tableRoot.transform.localPosition = new Vector3(0f, 0f, -1.00f);
             }
             if (_laserUnitRoot != null)
             {
-                // Laser gantry bridge is 3 m wide in script. Scale down to ~2.1 m.
-                _laserUnitRoot.transform.localScale    = new Vector3(0.70f, 0.75f, 0.70f);
-                // The laser cabinet is authored at local x = -1.5 inside the root,
-                // so pushing the root to +1.1 places the cabinet near x = 0 and
-                // the gantry centered over the chamber at (0.15, y, -1.1).
-                _laserUnitRoot.transform.localPosition = new Vector3(1.20f, 0f, -1.1f);
+                _laserUnitRoot.transform.localScale    = new Vector3(0.25f, 0.45f, 0.25f);
+                // Root at x = 0 puts the gantry / laser head (authored at the
+                // root's local x = 0) directly above the chamber centerline at
+                // world x = 0. The cabinet lives at local x = -1.5 inside the
+                // root; with scale 0.25 it sits at world x ≈ -0.375 m, which
+                // is still well inside the 1.27 m wide room.
+                _laserUnitRoot.transform.localPosition = new Vector3(0f, 0f, -1.00f);
             }
 
-            // 2) Gas tanks: back-right corner along the window band.
             if (_gasSystemRoot != null)
             {
-                _gasSystemRoot.transform.localScale    = new Vector3(0.55f, 0.65f, 0.55f);
-                // Internal tanks are at local (2.5, 0, -2) and (3.0, 0, -2).
-                // After scale (0.55) that is (1.375, 0, -1.1) and (1.65, 0, -1.1).
-                // Offset the root by (-0.6, 0, -1.0) to land tanks near
-                // (+0.78, 0, -2.1) and (+1.05, 0, -2.1): inside the right wall.
-                _gasSystemRoot.transform.localPosition = new Vector3(-0.60f, 0f, -1.0f);
+                _gasSystemRoot.transform.localScale    = new Vector3(0.25f, 0.40f, 0.25f);
+                // Internal tanks sit at local (2.5, 0, -2) and (3.0, 0, -2).
+                // With scale 0.25 that's offsets (0.625, -0.5) and (0.75, -0.5)
+                // from the root. Root at (-0.68, 0, -1.55) m lands the tanks
+                // near (-0.055, -2.05) and (0.07, -2.05): hugging the back wall,
+                // centered side-to-side in the narrow room.
+                _gasSystemRoot.transform.localPosition = new Vector3(-0.68f, 0f, -1.55f);
             }
 
-            // 3) Command Center (desk + monitor) and E-Stop: near entry doorway.
             var commandCenter = transform.Find("Command_Center");
             if (commandCenter != null)
             {
-                commandCenter.localScale    = new Vector3(0.70f, 0.80f, 0.70f);
-                commandCenter.localPosition = new Vector3(0.10f, 0f, 2.20f);
-                // Rotate 180 so monitor faces the chamber (back of room).
+                commandCenter.localScale    = new Vector3(0.40f, 0.55f, 0.40f);
+                commandCenter.localPosition = new Vector3(0f, 0f, 1.80f);
+                // Rotate 180 so the monitor faces the chamber / back of room.
                 commandCenter.localRotation = Quaternion.Euler(0f, 180f, 0f);
             }
 
             var estop = transform.Find("EStopButton");
             if (estop != null)
             {
-                // Put it on the desk (desk top is at y ≈ 0.95 * 0.8 = 0.76 m).
-                estop.localPosition = new Vector3(-0.55f, 0.78f, 2.05f);
+                estop.localPosition = new Vector3(-0.30f, 0.60f, 1.70f);
                 estop.localScale    = Vector3.one;
             }
 
@@ -248,13 +243,19 @@ namespace HVOFSim.Presentation.Scene
             }
         }
 
+        // Anchor the moving CNC platform under the laser head. The chamber and
+        // laser are positioned at world z = ChamberAnchorZ in ArrangeEquipmentForRoom;
+        // the runtime motion (X/Y within 0–300 mm) is added on top.
+        private const float ChamberAnchorZ = -1.00f;
+
         public void UpdateTablePosition(XYTable table)
         {
             if (Table == null || table == null) return;
-            // Map domain X/Y (0-300mm) to world space. Center of table (150,150) should be at LaserHead (0, y, 0.1).
+            // Map domain X/Y (0-300mm) to world space. Center of table (150,150)
+            // should sit directly under the laser head at (0, y, ChamberAnchorZ).
             float xOffset = (float)((table.Position.XMm - 150.0) * 0.001 * Scale);
             float zOffset = (float)((table.Position.YMm - 150.0) * 0.001 * Scale);
-            var target = new Vector3(-xOffset, Table.transform.position.y, 0.1f - zOffset);
+            var target = new Vector3(-xOffset, Table.transform.position.y, ChamberAnchorZ - zOffset);
             Table.transform.position = Vector3.Lerp(Table.transform.position, target, Time.deltaTime * 5f);
 
             if (_tableHomedLED != null)
@@ -913,21 +914,20 @@ namespace HVOFSim.Presentation.Scene
 
         private void CreateLighting()
         {
-            RenderSettings.ambientIntensity = 0.35f;
-            RenderSettings.ambientLight = new Color(0.06f, 0.07f, 0.1f);
+            // Minimized lighting — realistic dim storage/lab feel.
+            RenderSettings.ambientIntensity = 0.18f;
+            RenderSettings.ambientLight = new Color(0.05f, 0.06f, 0.08f);
             RenderSettings.ambientMode = AmbientMode.Flat;
 
-            // Main directional fill light (warm)
             var dirGO = new GameObject("DirectionalFill");
             dirGO.transform.SetParent(transform);
             dirGO.transform.rotation = Quaternion.Euler(50, -30, 0);
             var dir = dirGO.AddComponent<Light>();
             dir.type = LightType.Directional;
             dir.color = new Color(0.95f, 0.9f, 0.85f);
-            dir.intensity = 0.6f;
+            dir.intensity = 0.2f;
             dir.shadows = LightShadows.Soft;
 
-            // Chamber spotlight
             var spotGO = new GameObject("ChamberSpotlight");
             spotGO.transform.SetParent(Chamber.transform);
             spotGO.transform.localPosition = new Vector3(0, 2.7f, 0);
@@ -935,18 +935,17 @@ namespace HVOFSim.Presentation.Scene
             var spot = spotGO.AddComponent<Light>();
             spot.type = LightType.Spot;
             spot.color = new Color(0.9f, 0.95f, 1f);
-            spot.intensity = 20f;
-            spot.range = 8f;
-            spot.spotAngle = 75f;
+            spot.intensity = 6f;
+            spot.range = 5f;
+            spot.spotAngle = 60f;
             spot.shadows = LightShadows.Soft;
 
-            // Blue LED under-table strip lights
-            CreatePointLight("LEDStrip1", new Vector3(-0.8f, 0.05f, 0), new Color(0.1f, 0.4f, 1f), 6f, 2.5f);
-            CreatePointLight("LEDStrip2", new Vector3(0.8f, 0.05f, 0), new Color(0.1f, 0.4f, 1f), 6f, 2.5f);
-            CreatePointLight("LEDStrip3", new Vector3(0f, 0.05f, -0.5f), new Color(0.05f, 0.3f, 0.9f), 4f, 2f);
+            // Decorative LED/monitor glows kept but dimmer.
+            CreatePointLight("LEDStrip1", new Vector3(-0.8f, 0.05f, 0), new Color(0.1f, 0.4f, 1f), 1.5f, 1.4f);
+            CreatePointLight("LEDStrip2", new Vector3(0.8f, 0.05f, 0), new Color(0.1f, 0.4f, 1f), 1.5f, 1.4f);
+            CreatePointLight("LEDStrip3", new Vector3(0f, 0.05f, -0.5f), new Color(0.05f, 0.3f, 0.9f), 1.0f, 1.2f);
 
-            // Monitor glow (blue backlight)
-            CreatePointLight("MonitorGlow", new Vector3(0, 1.5f, -3.0f), new Color(0.15f, 0.3f, 0.9f), 4f, 3f);
+            CreatePointLight("MonitorGlow", new Vector3(0, 1.5f, -3.0f), new Color(0.15f, 0.3f, 0.9f), 1.0f, 1.8f);
 
             // Red warning light (near E-Stop area on desk)
             var warnGO = new GameObject("WarningPulse");
@@ -958,8 +957,7 @@ namespace HVOFSim.Presentation.Scene
             _warningPulseLight.intensity = 0f;
             _warningPulseLight.range = 2f;
 
-            // Gas area green accent
-            CreatePointLight("GasAccent", new Vector3(2.75f, 0.3f, -2f), new Color(0.1f, 0.8f, 0.3f), 2f, 2f);
+            CreatePointLight("GasAccent", new Vector3(2.75f, 0.3f, -2f), new Color(0.1f, 0.8f, 0.3f), 0.6f, 1.4f);
 
             // Laser impact point light
             var impactGO = new GameObject("LaserImpactLight");
