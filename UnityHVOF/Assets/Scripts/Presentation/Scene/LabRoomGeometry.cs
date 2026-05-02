@@ -202,7 +202,7 @@ namespace HVOFSim.Presentation.Scene
                 leftMarginMeters: spec.LeftWallDoorBackMarginCm * LabRoomSpec.CmToM);
 
             BuildSolidWall(parent, "LeftWall", leftDoorEnd, g.P3, h, thick, mats.Wall);
-            BuildSignPlate(parent, leftDoorEnd, g.P3, spec, mats);
+            // BuildSignPlate(parent, leftDoorEnd, g.P3, spec, mats); // Removed duplicate legacy sign
 
             // Back wall — single entry door. Anchored to the -X side of the
             // wall so that when the in-room camera looks at the back wall,

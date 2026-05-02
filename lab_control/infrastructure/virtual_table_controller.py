@@ -56,8 +56,11 @@ class VirtualTableController(ITableController):
         path = generator(recipe)
         self._validate_path_within_limits(table, path)
         table.state = TableState.SCANNING
-        for point in path:
-            table.position = point
+         # No need to assign every intermediate point — the dataclass field
+        # is overwritten 1600+ times with no observer between writes.
+        # Only the final position matters for the post-scan state.
+        if path:
+            table.position = path[-1]
         table.state = TableState.IDLE
         return path
 
