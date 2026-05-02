@@ -1527,18 +1527,35 @@ def _empty_scan_figure():
 
 def _build_scan_figure(xs, ys, pattern):
     """Build a 2D plot of the scan path."""
+    # Downsample to keep Plotly serialization snappy.
+    # 1600+ points → multi-second JSON payload to the browser.
+    # The user only needs to see the *shape* of the path, not every point.
+    MAX_RENDER_POINTS = 1500
+    n = len(xs)
+    if n > MAX_RENDER_POINTS:
+        stride = max(1, n // MAX_RENDER_POINTS)
+        xs_render = xs[::stride]
+        ys_render = ys[::stride]
+        # Always include the actual last point so the End marker matches the path.
+        if xs_render[-1] != xs[-1] or ys_render[-1] != ys[-1]:
+            xs_render = xs_render + [xs[-1]]
+            ys_render = ys_render + [ys[-1]]
+    else:
+        xs_render = xs
+        ys_render = ys
+
     fig = go.Figure()
 
     # Path line
     fig.add_trace(go.Scattergl(
-        x=xs, y=ys,
+        x=xs_render, y=ys_render,
         mode="lines",
         line=dict(color=COLORS["primary"], width=1),
         name="Scan Path",
         hovertemplate="X: %{x:.2f} mm<br>Y: %{y:.2f} mm<extra></extra>",
     ))
 
-    # Start marker
+    # Start marker (always the true first point)
     fig.add_trace(go.Scatter(
         x=[xs[0]], y=[ys[0]],
         mode="markers",
@@ -1546,7 +1563,7 @@ def _build_scan_figure(xs, ys, pattern):
         name="Start",
     ))
 
-    # End marker
+    # End marker (always the true last point)
     fig.add_trace(go.Scatter(
         x=[xs[-1]], y=[ys[-1]],
         mode="markers",

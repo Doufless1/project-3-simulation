@@ -14,6 +14,7 @@
 // ============================================================================
 
 using UnityEngine;
+using System.Threading;
 using HVOFSim.Domain.Entities;
 using HVOFSim.Domain.ValueObjects;
 using HVOFSim.Infrastructure.Laser;
@@ -67,6 +68,10 @@ namespace HVOFSim.Presentation
         private HeatmapRenderer _heatmapRenderer;
         private OrbitCamera _orbitCam;
 
+        // Background simulation result (thread-safe handoff)
+        private volatile SimulationResult _pendingResult;
+        private volatile string _pendingError;
+
         private void Awake()
         {
             BootstrapDomain();
@@ -90,6 +95,21 @@ namespace HVOFSim.Presentation
             // Read O2 during purge (simulated decay)
             if (_gas.State == GasState.Purging || _gas.State == GasState.Flowing)
                 _gasCtrl.ReadO2(_gas);
+
+            // Check for background simulation completion
+            if (_pendingResult != null)
+            {
+                var result = _pendingResult;
+                _pendingResult = null;
+                _dashboard.ShowSimulationResults(result);
+                _heatmapRenderer.UpdateFromSimulation(result);
+            }
+            if (_pendingError != null)
+            {
+                var err = _pendingError;
+                _pendingError = null;
+                _dashboard.LogToMonitor($"<color=#FF5555>Error: {err}</color>");
+            }
 
             // Update dashboard HUD
             _dashboard.UpdateDisplay(_table, _laser, _gas, _safety);
@@ -220,11 +240,43 @@ namespace HVOFSim.Presentation
                         ["speed_m_s"] = speedMS,
                         ["line_spacing_m"] = lineSpacingM
                     };
-                    
-                    // Domain grid [x, y, z] resolution in meters
-                    var result = _simUseCase.Execute(material, laser, motionParams, new[] {widthM, heightM, 0.002}, 500e-6);
-                    _dashboard.ShowSimulationResults(result);
-                    _heatmapRenderer.UpdateFromSimulation(result);
+
+                    // ── Dynamic resolution scaling ──────────────────────────
+                    // Budget: keep total grid cells under ~40k to avoid
+                    // freezing Unity.  For a 10×10×2 mm grid at 500 µm that
+                    // is 20×20×4 = 1600 cells (fast).  At 50×50 mm the same
+                    // resolution would be 100×100×4 = 40k — borderline, and
+                    // the trajectory is 25× longer.  We auto-coarsen so that
+                    // nx*ny stays ≤ MaxXYCells, keeping nz fixed at 4.
+                    const int MaxXYCells = 1600;   // same as the 10 mm case
+                    const double MinResolution = 500e-6;  // finest allowed
+                    const double MaxResolution = 5e-3;    // coarsest allowed
+                    double gridArea = (double)widthM * heightM;
+                    // resolution = sqrt(area / MaxXYCells)
+                    double autoRes = System.Math.Sqrt(gridArea / MaxXYCells);
+                    double resolution = System.Math.Max(MinResolution,
+                                        System.Math.Min(MaxResolution, autoRes));
+
+                    double[] gridSize = new[] { (double)widthM, (double)heightM, 0.002 };
+                    double resCopy = resolution;
+
+                    _dashboard.LogToMonitor(
+                        $"Simulation started (grid {widthM*1000:F0}×{heightM*1000:F0} mm, res={resolution*1e6:F0} µm)...");
+
+                    // Run on background thread to keep Unity responsive
+                    ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        try
+                        {
+                            var result = _simUseCase.Execute(
+                                material, laser, motionParams, gridSize, resCopy);
+                            _pendingResult = result;
+                        }
+                        catch (System.Exception ex)
+                        {
+                            _pendingError = ex.Message;
+                        }
+                    });
                 }
                 catch (System.Exception e) { _dashboard.LogToMonitor($"<color=#FF5555>Error: {e.Message}</color>"); }
             };
@@ -337,6 +389,26 @@ namespace HVOFSim.Presentation
                     if (_safety.ChamberInterlock == InterlockStatus.Locked) _safety.UnlockChamber();
                     if (_safety.DoorInterlock == InterlockStatus.Locked) _safety.UnlockDoor();
                     _dashboard.LogToMonitor("Lab Reset Complete");
+                }
+                catch (System.Exception e) { _dashboard.LogToMonitor($"<color=#FF5555>Error: {e.Message}</color>"); }
+            };
+
+            _dashboard.OnGCodeClicked = () =>
+            {
+                try
+                {
+                    var recipe = new ScanRecipe(
+                        "raster",
+                        _dashboard.ScanSpeedMmS,
+                        _laser.CurrentPowerW > 0 ? _laser.CurrentPowerW : 500,
+                        _dashboard.SpotSizeMm,
+                        _dashboard.OverlapPct,
+                        _dashboard.ScanWidthMm,
+                        _dashboard.ScanHeightMm);
+                    var gcode = _tableCtrl.GenerateGCode(recipe);
+                    var text = string.Join("\n", gcode.ConvertAll(g => g.ToString()));
+                    _dashboard.ShowGCode(text);
+                    _dashboard.LogToMonitor($"G-Code generated: {gcode.Count} lines");
                 }
                 catch (System.Exception e) { _dashboard.LogToMonitor($"<color=#FF5555>Error: {e.Message}</color>"); }
             };

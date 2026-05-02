@@ -48,6 +48,7 @@ namespace HVOFSim.Presentation.UI
         private TextMeshProUGUI _powerLabel;
         private TextMeshProUGUI _simResultText;
         private TextMeshProUGUI _activityLogText;
+        private TextMeshProUGUI _gcodeOutputText;
 
         // Stepper step circles
         private Image _step1Bg, _step2Bg, _step3Bg, _step4Bg;
@@ -105,6 +106,7 @@ namespace HVOFSim.Presentation.UI
         public Action<float> OnSetGasFlowClicked;
         public Action OnStopGasClicked;
         public Action OnResetLabClicked;
+        public Action OnGCodeClicked;
 
         // Callbacks — new equipment switching
         public Action<LaserType> OnLaserTypeChanged;
@@ -115,6 +117,7 @@ namespace HVOFSim.Presentation.UI
         public Action<HVOFSim.Domain.Entities.Material> OnMaterialChanged;
 
         private bool _isScanComplete = false;
+        private bool _dashboardHidden;
 
         // ── Design Tokens (exact match: shared/design_tokens.py) ──
         static readonly Color COL_BG       = Hex("#0a0e17");
@@ -160,6 +163,27 @@ namespace HVOFSim.Presentation.UI
             CreateBottomStatusBar();
             UpdateDerivedValues();
             LogToMonitor("SYSTEM INITIALIZED. Awaiting commands...");
+            LogToMonitor("F2 or the Hide button: clear full-screen UI and view the 3D lab. F2 to bring the dashboard back.");
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.F2))
+            {
+                _dashboardHidden = !_dashboardHidden;
+                ApplyDashboardVisibility();
+            }
+        }
+
+        private void ApplyDashboardVisibility()
+        {
+            if (_canvas != null) _canvas.enabled = !_dashboardHidden;
+        }
+
+        private void SetDashboardVisible(bool show)
+        {
+            _dashboardHidden = !show;
+            ApplyDashboardVisibility();
         }
 
         public void UpdateDisplay(XYTable table, LaserUnit laser, GasSystem gas, SafetySystem safety)
@@ -246,14 +270,34 @@ namespace HVOFSim.Presentation.UI
         {
             _isScanComplete = true; // Mark scan as finished to turn step 4 green
             if (_simResultText != null)
+            {
+                // Format fluence in human-readable units
+                string fluenceStr;
+                if (result.PeakFluenceJPerM2 >= 1e6)
+                    fluenceStr = $"{result.PeakFluenceJPerM2 / 1e6:F2} MJ/m²";
+                else if (result.PeakFluenceJPerM2 >= 1e3)
+                    fluenceStr = $"{result.PeakFluenceJPerM2 / 1e3:F2} kJ/m²";
+                else
+                    fluenceStr = $"{result.PeakFluenceJPerM2:F2} J/m²";
+
+                // Format energy in human-readable units
+                string energyStr;
+                if (result.TotalEnergyJ >= 1e6)
+                    energyStr = $"{result.TotalEnergyJ / 1e6:F2} MJ";
+                else if (result.TotalEnergyJ >= 1e3)
+                    energyStr = $"{result.TotalEnergyJ / 1e3:F2} kJ";
+                else
+                    energyStr = $"{result.TotalEnergyJ:F4} J";
+
                 _simResultText.text =
                     $"<color=#10B981><b>Simulation Complete</b></color>\n\n" +
                     $"<b>Solver:</b> {result.SolverName}\n" +
-                    $"<b>Peak Temp:</b> {result.PeakTemperatureCelsius:F1} C\n" +
-                    $"<b>Peak Fluence:</b> {result.PeakFluenceJPerM2:F2} J/m2\n" +
-                    $"<b>Melt Depth:</b> {(result.MeltDepthM.HasValue ? $"{result.MeltDepthM.Value * 1e6:F1} um" : "None")}\n" +
-                    $"<b>Total Energy:</b> {result.TotalEnergyJ:F4} J\n" +
+                    $"<b>Peak Temp:</b> {result.PeakTemperatureCelsius:F1} °C\n" +
+                    $"<b>Peak Fluence:</b> {fluenceStr}\n" +
+                    $"<b>Melt Depth:</b> {(result.MeltDepthM.HasValue ? $"{result.MeltDepthM.Value * 1e6:F1} µm" : "None")}\n" +
+                    $"<b>Total Energy:</b> {energyStr}\n" +
                     $"<b>Compute Time:</b> {result.DurationSeconds:F3} s";
+            }
             LogToMonitor($"Simulation finished. Peak Temp: {result.PeakTemperatureCelsius:F1} C");
         }
 
@@ -269,32 +313,32 @@ namespace HVOFSim.Presentation.UI
             Debug.Log("[Dashboard] " + message);
         }
 
+        public void ShowGCode(string gcodeText)
+        {
+            if (_gcodeOutputText != null)
+            {
+                _gcodeOutputText.text = gcodeText;
+                _gcodeOutputText.color = COL_TEXT;
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════
         //                     UI CONSTRUCTION
         // ═══════════════════════════════════════════════════════════════
 
         private void CreateCanvas()
         {
+            // Full-screen control app (Screen Space). The 3D operator “monitor” is a
+            // prop only; world-space UIs on it did not line up with the emissive
+            // mesh, so the real application always renders here. F2 = hide to tour the lab.
             var canvasGO = new GameObject("ModernDashboardCanvas");
             canvasGO.transform.SetParent(transform);
             _canvas = canvasGO.AddComponent<Canvas>();
-            var monitor = GameObject.Find("DashboardMonitorBase");
-            if (monitor != null)
-            {
-                _canvas.renderMode = RenderMode.WorldSpace;
-                var rect = canvasGO.GetComponent<RectTransform>();
-                rect.SetParent(monitor.transform, false);
-                rect.localScale = new Vector3(0.95f / 1920f, 0.95f / 1080f, 1f);
-                rect.sizeDelta = new Vector3(1920, 1080);
-                rect.localPosition = new Vector3(0, 0, -0.51f);
-            }
-            else
-            {
-                _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                var scaler = canvasGO.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-            }
+            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _canvas.sortingOrder = 100;
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
             canvasGO.AddComponent<GraphicRaycaster>();
         }
 
@@ -311,11 +355,18 @@ namespace HVOFSim.Presentation.UI
             var title = MkLabel(titleRow, "<b>HVOF Laser Lab</b>", 26, COL_PRIMARY);
             var subtitle = MkLabel(titleRow, "Virtual Control Dashboard", 26, new Color(COL_TEXT.r, COL_TEXT.g, COL_TEXT.b, 0.8f));
             subtitle.fontStyle = FontStyles.Normal;
+            var spacer = new GameObject("TitleSpacer");
+            spacer.transform.SetParent(titleRow.transform, false);
+            spacer.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            CreateStyledButton(
+                titleRow,
+                "Hide (F2)",
+                COL_CARD,
+                COL_TEXT,
+                () => { LogToMonitor("Dashboard hidden. Press F2 to show again."); SetDashboardVisible(false); },
+                32);
 
-            // Subtitle line and App Description port from Python Dashboard
-            MkLabel(header, "Virtual digital twin of a laser treatment lab. Control the X-Y table, gas system, and laser in a safe simulation environment.", 13, COL_MUTED);
-            var archLabel = MkLabel(header, "Design Patterns: Clean Architecture – CIA Triad – STRIDE", 11, new Color(COL_PRIMARY.r, COL_PRIMARY.g, COL_PRIMARY.b, 0.7f));
-            archLabel.fontStyle = FontStyles.Italic;
+
         }
 
         private void CreateWorkflowStepper()
@@ -720,7 +771,7 @@ namespace HVOFSim.Presentation.UI
             CreateStyledButton(btnRow, "Home", COL_PRIMARY, Color.white, () => { LogToMonitor("Command: Home Table"); OnHomeClicked?.Invoke(); });
             CreateStyledButton(btnRow, "Run Scan", COL_SUCCESS, Color.white, () => { LogToMonitor("Starting Scan..."); OnRunSimulationClicked?.Invoke(); });
             CreateStyledButton(btnRow, "Reset Lab", COL_DANGER, Color.white, () => { LogToMonitor("Resetting Lab State..."); _isScanComplete = false; if(_simResultText != null) _simResultText.text = "Click 'Run Scan' to visualize"; OnResetLabClicked?.Invoke(); });
-            CreateStyledButton(btnRow, "G-Code", COL_ACCENT, Color.white, () => { LogToMonitor("Exported G-Code"); });
+            CreateStyledButton(btnRow, "G-Code", COL_ACCENT, Color.white, () => { LogToMonitor("Generating G-Code..."); OnGCodeClicked?.Invoke(); });
             MkLabel(posCard, "Home = reset origin. Run Scan = runs laser path & digital twin simulation. Reset Lab = stops all & clears state.", 11, COL_MUTED);
 
             // Scan Parameters
@@ -759,7 +810,7 @@ namespace HVOFSim.Presentation.UI
             // Scan Path Preview
             var prevCard = CreateCard(rightCol, "Scan Path Preview");
             var bbox = CreateBlackBox(prevCard, 350);
-            _simResultText = MkLabel(bbox, "Click 'Run Scan' to visualize", 14, COL_MUTED, TextAlignmentOptions.Center);
+            _simResultText = MkLabel(bbox, "Click 'Run Scan' to visualize", 18, COL_MUTED, TextAlignmentOptions.Center);
             var simRect = _simResultText.GetComponent<RectTransform>();
             simRect.anchorMin = Vector2.zero; simRect.anchorMax = Vector2.one;
             simRect.sizeDelta = Vector2.zero; simRect.anchoredPosition = Vector2.zero;
@@ -774,8 +825,13 @@ namespace HVOFSim.Presentation.UI
             // G-Code block moved to bottom (spanning full width)
             var gcCard = CreateCard(content, "Generated G-Code");
             MkLabel(gcCard, "G-Code is the standard language for CNC machines. Copy this output and send it to a motion controller.", 11, COL_MUTED);
-            var gcBox = CreateBlackBox(gcCard, 80);
-            MkLabel(gcBox, " Click 'Export G-Code' to generate...", 13, COL_MUTED);
+            var gcBox = CreateBlackBox(gcCard, 200);
+            _gcodeOutputText = MkLabel(gcBox, " Click 'G-Code' to generate...", 13, COL_MUTED);
+            _gcodeOutputText.enableWordWrapping = true;
+            _gcodeOutputText.overflowMode = TMPro.TextOverflowModes.Truncate;
+            var gcRect = _gcodeOutputText.GetComponent<RectTransform>();
+            gcRect.anchorMin = Vector2.zero; gcRect.anchorMax = Vector2.one;
+            gcRect.sizeDelta = new Vector2(-16, -8); gcRect.anchoredPosition = Vector2.zero;
 
             return panel;
         }
@@ -990,11 +1046,11 @@ namespace HVOFSim.Presentation.UI
 
         private void CreateBottomStatusBar()
         {
-            var bar = CreateUIPanel("StatusBar", new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 36), new Vector2(0, 18), COL_CARD);
+            var bar = CreateUIPanel("StatusBar", new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 44), new Vector2(0, 22), COL_CARD);
             var hlg = bar.AddComponent<HorizontalLayoutGroup>();
             hlg.padding = new RectOffset(24, 24, 0, 0);
             hlg.childAlignment = TextAnchor.MiddleLeft;
-            _statusBarText = MkLabel(bar, "Table: Idle   Laser: Off   Gas: Closed   Safety: <color=#EF4444>Not Ready</color>", 12, COL_MUTED);
+            _statusBarText = MkLabel(bar, "Table: Idle   Laser: Off   Gas: Closed   Safety: <color=#EF4444>Not Ready</color>", 14, COL_MUTED);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -1119,15 +1175,19 @@ namespace HVOFSim.Presentation.UI
             return MkLabel(col, $"<b>{defaultVal}</b>", valSize, COL_TEXT);
         }
 
+        // Global font scale — increase to make ALL text larger
+        private const float FONT_SCALE = 1.4f;
+
         private TextMeshProUGUI MkLabel(GameObject parent, string txt, int size, Color c, TextAlignmentOptions align = TextAlignmentOptions.TopLeft)
         {
             var go = new GameObject("Txt");
             go.transform.SetParent(parent.transform, false);
             var tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = txt; tmp.fontSize = size; tmp.color = c; tmp.alignment = align;
+            int scaledSize = Mathf.RoundToInt(size * FONT_SCALE);
+            tmp.text = txt; tmp.fontSize = scaledSize; tmp.color = c; tmp.alignment = align;
             tmp.richText = true; tmp.enableWordWrapping = false;
             var le = go.AddComponent<LayoutElement>();
-            le.minHeight = size + 8;
+            le.minHeight = scaledSize + 10;
             return tmp;
         }
 

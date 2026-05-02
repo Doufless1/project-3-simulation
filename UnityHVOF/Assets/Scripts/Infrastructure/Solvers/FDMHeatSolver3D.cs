@@ -107,6 +107,8 @@ namespace HVOFSim.Infrastructure.Solvers
 
             // --- Time-Stepping Loop ---
             int nSteps = trajectory.NPoints;
+            long totalSubsteps = 0;
+            const long MaxTotalSubsteps = 50_000; // Overall budget to prevent runaway
 
             for (int stepIdx = 0; stepIdx < nSteps - 1; stepIdx++)
             {
@@ -115,10 +117,21 @@ namespace HVOFSim.Infrastructure.Solvers
 
                 int nSub = Math.Max((int)Math.Ceiling(segDt / dt), 1);
                 
-                // Prevent infinite loop / thread freeze on extreme parameters
-                if (nSub > 10000)
+                // Prevent freeze on extreme per-segment substep counts
+                if (nSub > 2000)
                 {
-                    throw new SolverInstabilityException($"Simulation parameters require {nSub} calculation substeps per segment, which will freeze the application. Please increase spot size or scan speed.");
+                    throw new SolverInstabilityException(
+                        $"Simulation parameters require {nSub} substeps per segment " +
+                        $"(limit: 2000). Increase resolution, spot size, or scan speed.");
+                }
+
+                totalSubsteps += nSub;
+                if (totalSubsteps > MaxTotalSubsteps)
+                {
+                    throw new SolverInstabilityException(
+                        $"Total substeps ({totalSubsteps}) exceed budget ({MaxTotalSubsteps}). " +
+                        $"The scan area is too large for the current resolution. " +
+                        $"Try a smaller scan area or increase spot size / speed.");
                 }
 
                 double actualDt = segDt / nSub;
