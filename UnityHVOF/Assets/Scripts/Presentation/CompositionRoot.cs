@@ -14,6 +14,7 @@
 // ============================================================================
 
 using UnityEngine;
+using System.Collections;
 using System.Threading;
 using HVOFSim.Domain.Entities;
 using HVOFSim.Domain.ValueObjects;
@@ -67,6 +68,10 @@ namespace HVOFSim.Presentation
         private GasFlowVFX _gasVFX;
         private HeatmapRenderer _heatmapRenderer;
         private OrbitCamera _orbitCam;
+
+        // Motion generator for trajectory-based table animation
+        private IMotionGenerator _motionGen;
+        private Coroutine _scanAnimCoroutine;
 
         // Background simulation result (thread-safe handoff)
         private volatile SimulationResult _pendingResult;
@@ -150,9 +155,9 @@ namespace HVOFSim.Presentation
 
             ILaserSource laserSource = LaserFactory.Create("gaussian");
             IHeatSolver solver = new FDMHeatSolver3D(laserSource);
-            IMotionGenerator motionGen = new RasterGenerator();
+            _motionGen = new RasterGenerator();
 
-            _simUseCase = new SimulationUseCase(solver, motionGen, _auditLogger);
+            _simUseCase = new SimulationUseCase(solver, _motionGen, _auditLogger);
             _hvofUseCase = new HVOFLaserUseCase(
                 new HVOFCoatingGenerator(),
                 new FDMCoatingSolver2D(1e4)
@@ -267,7 +272,17 @@ namespace HVOFSim.Presentation
                     _dashboard.LogToMonitor(
                         $"Simulation started (P={simPower:F0}W, grid {widthM*1000:F0}×{heightM*1000:F0} mm, res={resolution*1e6:F0} µm)...");
 
-                    // Run on background thread to keep Unity responsive
+                    // ── Animate the 3D XY table along the scan trajectory ────
+                    // Generate the same raster trajectory used by the solver,
+                    // then feed it to the XYTable entity frame-by-frame via a
+                    // coroutine.  UpdateTablePosition() in Update() already
+                    // drives the 3D transform from entity state.
+                    if (!_table.IsHomed) _table.Home(); // ensure table is homed
+                    var trajectory = _motionGen.Generate(motionParams);
+                    if (_scanAnimCoroutine != null) StopCoroutine(_scanAnimCoroutine);
+                    _scanAnimCoroutine = StartCoroutine(AnimateTableScan(trajectory));
+
+                    // Run thermal solver on background thread to keep Unity responsive
                     ThreadPool.QueueUserWorkItem(_ =>
                     {
                         try
@@ -454,6 +469,73 @@ namespace HVOFSim.Presentation
             {
                 _dashboard.LogToMonitor($"Material loaded: {material.Name} (T_melt={material.TMelt:F0}°C)");
             };
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // Scan Animation Coroutine
+        // ═════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Animates the XY table along the generated scan trajectory
+        /// in real-time. The trajectory time/position arrays are in
+        /// metres and seconds — we convert positions to mm for the
+        /// domain entity. A speed multiplier keeps the visual animation
+        /// brisk while remaining physically faithful to the path.
+        /// </summary>
+        private IEnumerator AnimateTableScan(Trajectory trajectory)
+        {
+            const float SpeedMultiplier = 5f; // 5× real-time
+
+            _table.SetState(TableState.Scanning);
+            _dashboard.LogToMonitor(
+                $"Table scan started — {trajectory.NPoints} waypoints, " +
+                $"{trajectory.Duration:F2}s real / {trajectory.Duration / SpeedMultiplier:F2}s anim");
+
+            int n = trajectory.NPoints;
+            float elapsed = 0f;
+
+            for (int i = 0; i < n - 1; i++)
+            {
+                // Duration of this segment in real seconds
+                float segDuration = (float)(trajectory.Time[i + 1] - trajectory.Time[i]);
+                if (segDuration <= 0f)
+                {
+                    // Zero-duration jump — snap instantly
+                    double xMm = trajectory.X[i + 1] * 1000.0;
+                    double yMm = trajectory.Y[i + 1] * 1000.0;
+                    _table.SetPosition(new Position2D(xMm, yMm));
+                    continue;
+                }
+
+                float animDuration = segDuration / SpeedMultiplier;
+                float segElapsed = 0f;
+
+                double x0 = trajectory.X[i]     * 1000.0; // m → mm
+                double y0 = trajectory.Y[i]     * 1000.0;
+                double x1 = trajectory.X[i + 1] * 1000.0;
+                double y1 = trajectory.Y[i + 1] * 1000.0;
+
+                while (segElapsed < animDuration)
+                {
+                    segElapsed += Time.deltaTime;
+                    float t = Mathf.Clamp01(segElapsed / animDuration);
+
+                    double cx = x0 + (x1 - x0) * t;
+                    double cy = y0 + (y1 - y0) * t;
+                    _table.SetPosition(new Position2D(cx, cy));
+
+                    yield return null;
+                }
+
+                // Snap to exact end-of-segment position
+                _table.SetPosition(new Position2D(x1, y1));
+            }
+
+            // Return table to origin and mark idle
+            _table.SetPosition(new Position2D(0, 0));
+            _table.SetState(TableState.Idle);
+            _dashboard.LogToMonitor("Table scan animation complete — returned to origin.");
+            _scanAnimCoroutine = null;
         }
     }
 }
