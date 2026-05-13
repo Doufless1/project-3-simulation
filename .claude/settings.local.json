@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc \"C:\\\\Users\\\\usuario\\\\Downloads\\\\Research report group 3 \\(2\\).docx\" -o \"C:\\\\Users\\\\usuario\\\\Downloads\\\\report_extracted.md\")",
+      "PowerShell(pandoc \"C:\\\\Users\\\\usuario\\\\Downloads\\\\Research report group 3 \\(2\\).docx\" -o \"C:\\\\Users\\\\usuario\\\\Downloads\\\\report_extracted.md\")",
+      "Bash(ls \"C:\\\\Users\\\\usuario\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\fcbe5770-c4e5-45e4-a08c-91e667256d7d\\\\196e08ea-fad0-40ba-a658-02ee43ec9562\\\\skills\\\\docx\\\\scripts\" 2>&1)",
+      "Bash(ls \"C:\\\\Users\\\\usuario\\\\Downloads\\\\report_unpacked\")",
+      "Bash(sed 's/<w:t[^>]*>//; s/<\\\\/w:t>//')",
+      "Read(//c/Users/usuario/Downloads/**)",
+      "PowerShell($env:NODE_PATH=\"$env:APPDATA\\\\npm\\\\node_modules\"; node \"C:\\\\Users\\\\usuario\\\\Downloads\\\\report_visuals\\\\build_chapter10.js\")",
+      "Bash(rm -rf \"C:/Users/usuario/Downloads/Chapter_10_unpacked\" \"C:/Users/usuario/Downloads/report_unpacked\" \"C:/Users/usuario/Downloads/report_text.txt\")"
+    ]
+  }
+}
