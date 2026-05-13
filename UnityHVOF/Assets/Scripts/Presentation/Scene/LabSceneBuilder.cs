@@ -1072,7 +1072,7 @@ namespace HVOFSim.Presentation.Scene
             chassis.name = "LaserCabinet";
             chassis.transform.SetParent(parent);
             chassis.transform.localScale = new Vector3(W, H, D);
-            chassis.transform.localPosition = new Vector3(-1.5f, H / 2f, 0f);
+            chassis.transform.localPosition = new Vector3(-1.5f, 1.74f + H / 2f, -5f);
             chassis.GetComponent<Renderer>().material = matBlue;
 
             // — 2. Faceplate (flush against chassis front) —
@@ -1208,6 +1208,138 @@ namespace HVOFSim.Presentation.Scene
                     + new Vector3(-W * 0.18f + i * 0.23f, TOP / 2f + 0.002f, -D * 0.30f);
                 label.GetComponent<Renderer>().material = _hazardMat;
             }
+
+            // — 6. Command Desk with PC & Monitor (next to cabinet) ——
+            float DESK_TOP_Y = 1.70f;
+            float DESK_T_thick = 0.08f;
+            float DESK_W_size = 2.0f;
+            float DESK_D_size = 4.0f;
+            float DESK_X_pos = -1.5f;
+            float DESK_Z_pos = chassis.transform.localPosition.z - 3.5f;
+
+            var matDeskTop = new Material(shader) { color = new Color(0.25f, 0.22f, 0.20f) };
+            matDeskTop.SetFloat("_Metallic", 0.15f); matDeskTop.SetFloat("_Smoothness", 0.45f);
+            var matDeskLeg = new Material(shader) { color = new Color(0.18f, 0.18f, 0.20f) };
+            matDeskLeg.SetFloat("_Metallic", 0.80f); matDeskLeg.SetFloat("_Smoothness", 0.50f);
+
+            // Desk top surface
+            var deskTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            deskTop.name = "CommandDesk_Top";
+            deskTop.transform.SetParent(parent);
+            deskTop.transform.localScale = new Vector3(DESK_W_size, DESK_T_thick, DESK_D_size);
+            deskTop.transform.localPosition = new Vector3(DESK_X_pos, DESK_TOP_Y, DESK_Z_pos);
+            deskTop.GetComponent<Renderer>().material = matDeskTop;
+
+            // Desk legs (4 corners)
+            float dLegH = DESK_TOP_Y - DESK_T_thick / 2f;
+            float dHalfW = DESK_W_size / 2f - 0.15f;
+            float dHalfD = DESK_D_size / 2f - 0.15f;
+            for (int li = 0; li < 4; li++)
+            {
+                float lx = (li % 2 == 0 ? -1 : 1) * dHalfW + DESK_X_pos;
+                float lz = (li < 2 ? -1 : 1) * dHalfD + DESK_Z_pos;
+                var leg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leg.name = $"CommandDesk_Leg_{li}";
+                leg.transform.SetParent(parent);
+                leg.transform.localScale = new Vector3(0.12f, dLegH, 0.12f);
+                leg.transform.localPosition = new Vector3(lx, dLegH / 2f, lz);
+                leg.GetComponent<Renderer>().material = matDeskLeg;
+            }
+
+            // PC Tower (on the floor next to the desk)
+            float pcX = DESK_X_pos + 1.2f;
+            float pcH = 1.10f;
+            var pcCase = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pcCase.name = "PC_Tower";
+            pcCase.transform.SetParent(parent);
+            pcCase.transform.localScale = new Vector3(0.80f, pcH, 1.60f);
+            pcCase.transform.localPosition = new Vector3(pcX, pcH / 2f, DESK_Z_pos);
+            pcCase.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            pcCase.GetComponent<Renderer>().material = matBlack;
+
+            // PC front panel accent
+            var pcFront = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pcFront.name = "PC_FrontPanel";
+            pcFront.transform.SetParent(parent);
+            pcFront.transform.localScale = new Vector3(0.72f, 0.33f, 0.02f);
+            pcFront.transform.localPosition = new Vector3(pcX + 0.81f, pcH * 0.75f, DESK_Z_pos);
+            pcFront.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            pcFront.GetComponent<Renderer>().material = matGray;
+
+            // PC power LED
+            var pcLed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            pcLed.name = "PC_PowerLED";
+            pcLed.transform.SetParent(parent);
+            pcLed.transform.localScale = new Vector3(0.04f, 0.04f, 0.04f);
+            pcLed.transform.localPosition = new Vector3(pcX + 0.82f, pcH * 0.82f, DESK_Z_pos - 0.24f);
+            var pcLedMat = new Material(shader);
+            pcLedMat.color = new Color(0.1f, 0.8f, 0.2f);
+            pcLedMat.EnableKeyword("_EMISSION");
+            pcLedMat.SetColor("_EmissionColor", new Color(0.2f, 2.0f, 0.4f));
+            pcLed.GetComponent<Renderer>().material = pcLedMat;
+
+            // Monitor (center of desk — widescreen 16:9)
+            float monX = DESK_X_pos;
+            float monStandH = 0.35f;
+            float monW = 1.80f, monH = 0.50f, monT = 0.04f;
+
+            // Monitor stand base
+            var monBase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            monBase.name = "Monitor_StandBase";
+            monBase.transform.SetParent(parent);
+            monBase.transform.localScale = new Vector3(0.45f, 0.03f, 0.45f);
+            monBase.transform.localPosition = new Vector3(monX, DESK_TOP_Y + DESK_T_thick / 2f + 0.03f, DESK_Z_pos);
+            monBase.GetComponent<Renderer>().material = matBlack;
+
+            // Monitor stand neck
+            var monNeck = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            monNeck.name = "Monitor_StandNeck";
+            monNeck.transform.SetParent(parent);
+            monNeck.transform.localScale = new Vector3(0.08f, monStandH / 2f, 0.08f);
+            monNeck.transform.localPosition = new Vector3(monX, DESK_TOP_Y + DESK_T_thick / 2f + 0.06f + monStandH / 2f, DESK_Z_pos);
+            monNeck.GetComponent<Renderer>().material = matBlack;
+
+            // Monitor bezel (behind screen for depth)
+            float monScreenY = DESK_TOP_Y + DESK_T_thick / 2f + 0.06f + monStandH + monH / 2f;
+            var monBezel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            monBezel.name = "Monitor_Bezel";
+            monBezel.transform.SetParent(parent);
+            monBezel.transform.localScale = new Vector3(monW + 0.08f, monH + 0.08f, monT + 0.02f);
+            monBezel.transform.localPosition = new Vector3(monX - 0.015f, monScreenY, DESK_Z_pos);
+            monBezel.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            monBezel.GetComponent<Renderer>().material = matBlack;
+
+            // Monitor screen (emissive)
+            var monScreen = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            monScreen.name = "Monitor_Screen";
+            monScreen.transform.SetParent(parent);
+            monScreen.transform.localScale = new Vector3(monW, monH, monT);
+            monScreen.transform.localPosition = new Vector3(monX + 0.01f, monScreenY, DESK_Z_pos);
+            monScreen.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            var monScreenMat = new Material(shader);
+            monScreenMat.color = new Color(0.02f, 0.04f, 0.08f);
+            monScreenMat.EnableKeyword("_EMISSION");
+            monScreenMat.SetColor("_EmissionColor", new Color(0.08f, 0.15f, 0.30f) * 0.5f);
+            monScreenMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            monScreen.GetComponent<Renderer>().material = monScreenMat;
+
+            // Keyboard
+            var keyboard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            keyboard.name = "Keyboard";
+            keyboard.transform.SetParent(parent);
+            keyboard.transform.localScale = new Vector3(1.40f, 0.05f, 0.50f);
+            keyboard.transform.localPosition = new Vector3(monX + 1.0f, DESK_TOP_Y + DESK_T_thick / 2f + 0.03f, DESK_Z_pos);
+            keyboard.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            keyboard.GetComponent<Renderer>().material = matBlack;
+
+            // Mouse
+            var mouse = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            mouse.name = "Mouse";
+            mouse.transform.SetParent(parent);
+            mouse.transform.localScale = new Vector3(0.22f, 0.04f, 0.35f);
+            mouse.transform.localPosition = new Vector3(monX + 0.8f, DESK_TOP_Y + DESK_T_thick / 2f + 0.025f, DESK_Z_pos + 1.0f);
+            mouse.transform.localRotation = Quaternion.Euler(0, 90f, 0);
+            mouse.GetComponent<Renderer>().material = matBlack;
 
             // — Processing head (replaces old gantry + cube head) —
             CreateProcessingHead(parent);

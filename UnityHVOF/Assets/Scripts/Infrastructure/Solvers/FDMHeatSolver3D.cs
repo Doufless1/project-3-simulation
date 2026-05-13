@@ -108,7 +108,7 @@ namespace HVOFSim.Infrastructure.Solvers
             // --- Time-Stepping Loop ---
             int nSteps = trajectory.NPoints;
             long totalSubsteps = 0;
-            const long MaxTotalSubsteps = 50_000; // Overall budget to prevent runaway
+            const long MaxTotalSubsteps = 200_000; // Overall budget to prevent runaway
 
             for (int stepIdx = 0; stepIdx < nSteps - 1; stepIdx++)
             {
@@ -118,11 +118,11 @@ namespace HVOFSim.Infrastructure.Solvers
                 int nSub = Math.Max((int)Math.Ceiling(segDt / dt), 1);
                 
                 // Prevent freeze on extreme per-segment substep counts
-                if (nSub > 2000)
+                if (nSub > 5000)
                 {
                     throw new SolverInstabilityException(
                         $"Simulation parameters require {nSub} substeps per segment " +
-                        $"(limit: 2000). Increase resolution, spot size, or scan speed.");
+                        $"(limit: 5000). Increase resolution, spot size, or scan speed.");
                 }
 
                 totalSubsteps += nSub;
@@ -247,6 +247,15 @@ namespace HVOFSim.Infrastructure.Solvers
             for (int i = 1; i < nx - 1; i++)
                 for (int j = 1; j < ny - 1; j++)
                     tNew[i, j, 0] += rz * (tField[i, j, 1] - tField[i, j, 0]);
+
+            // Lateral (x-y) diffusion at the surface — the interior loop
+            // starts at k=1 so the surface was missing this contribution,
+            // causing heat to pile up at the irradiated cell instead of
+            // spreading laterally which under-predicts the heated zone width.
+            for (int i = 1; i < nx - 1; i++)
+                for (int j = 1; j < ny - 1; j++)
+                    tNew[i, j, 0] += rx * (tField[i + 1, j, 0] + tField[i - 1, j, 0] - 2 * tField[i, j, 0])
+                                   + ry * (tField[i, j + 1, 0] + tField[i, j - 1, 0] - 2 * tField[i, j, 0]);
 
             // Bottom boundary
             if (_bottomBc == "adiabatic")

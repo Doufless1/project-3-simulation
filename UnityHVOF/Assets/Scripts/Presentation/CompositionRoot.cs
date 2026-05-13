@@ -231,7 +231,9 @@ namespace HVOFSim.Presentation
                     // Use the selected material from the dashboard if available
                     var material = _dashboard.SelectedMaterial ?? new HVOFSim.Domain.Entities.Material("WC-NiCr", 0.75, 45, 14800, 300);
                     var laserSpec = LaserTypeSpecs.GetSpec(_dashboard.SelectedLaserType);
-                    var laser = new LaserBeam(_laser.CurrentPowerW, laserSpec.WavelengthM, spotRadiusM, 0.15);
+                    // Default to 300 W (YLR-300-AC max) when no power has been set
+                    double simPower = _laser.CurrentPowerW > 0 ? _laser.CurrentPowerW : 300.0;
+                    var laser = new LaserBeam(simPower, laserSpec.WavelengthM, spotRadiusM, 0.15);
                     
                     var motionParams = new System.Collections.Generic.Dictionary<string, object>
                     {
@@ -241,27 +243,29 @@ namespace HVOFSim.Presentation
                         ["line_spacing_m"] = lineSpacingM
                     };
 
-                    // ── Dynamic resolution scaling ──────────────────────────
-                    // Budget: keep total grid cells under ~40k to avoid
-                    // freezing Unity.  For a 10×10×2 mm grid at 500 µm that
-                    // is 20×20×4 = 1600 cells (fast).  At 50×50 mm the same
-                    // resolution would be 100×100×4 = 40k — borderline, and
-                    // the trajectory is 25× longer.  We auto-coarsen so that
-                    // nx*ny stays ≤ MaxXYCells, keeping nz fixed at 4.
-                    const int MaxXYCells = 1600;   // same as the 10 mm case
-                    const double MinResolution = 500e-6;  // finest allowed
+                    // ── Beam-aware dynamic resolution ────────────────────────
+                    // The grid MUST resolve the Gaussian beam: at least 4 cells
+                    // across the beam diameter (res ≤ spotRadius / 2).  We also
+                    // cap total XY cells at 20 000 for Unity responsiveness.
+                    // When the area-based resolution is coarser than the beam
+                    // limit, the beam limit wins — otherwise the Gaussian is
+                    // smeared over 1-2 cells and peak temperature is severely
+                    // under-predicted.
+                    const int MaxXYCells = 20_000;
+                    const double MinResolution = 200e-6;  // finest allowed
                     const double MaxResolution = 5e-3;    // coarsest allowed
                     double gridArea = (double)widthM * heightM;
-                    // resolution = sqrt(area / MaxXYCells)
-                    double autoRes = System.Math.Sqrt(gridArea / MaxXYCells);
-                    double resolution = System.Math.Max(MinResolution,
-                                        System.Math.Min(MaxResolution, autoRes));
+                    double beamRes  = spotRadiusM / 2.0;           // resolve the Gaussian
+                    double areaRes  = System.Math.Sqrt(gridArea / MaxXYCells);
+                    double resolution = System.Math.Max(beamRes, areaRes);
+                    resolution = System.Math.Max(MinResolution,
+                                 System.Math.Min(MaxResolution, resolution));
 
                     double[] gridSize = new[] { (double)widthM, (double)heightM, 0.002 };
                     double resCopy = resolution;
 
                     _dashboard.LogToMonitor(
-                        $"Simulation started (grid {widthM*1000:F0}×{heightM*1000:F0} mm, res={resolution*1e6:F0} µm)...");
+                        $"Simulation started (P={simPower:F0}W, grid {widthM*1000:F0}×{heightM*1000:F0} mm, res={resolution*1e6:F0} µm)...");
 
                     // Run on background thread to keep Unity responsive
                     ThreadPool.QueueUserWorkItem(_ =>

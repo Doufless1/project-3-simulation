@@ -991,7 +991,7 @@ namespace HVOFSim.Presentation.UI
                 // Summary card
                 var sumCard = CreateCard(content, "Budget Summary");
                 var sumRow = CreateRow(sumCard);
-                CreateIndicator(sumRow, "TOTAL EQUIPMENT", $"<color=#3b82f6>€{total:N0}</color>", 28);
+                CreateIndicator(sumRow, "TOTAL EQUIPMENT", $"<color=#3b82f6>€{total:N2}</color>", 28);
                 CreateIndicator(sumRow, "CATEGORIES", $"<color=#8b5cf6>{categories.Count}</color>", 28);
                 CreateIndicator(sumRow, "LINE ITEMS", $"<color=#10b981>{catalog.Count}</color>", 28);
 
@@ -1015,8 +1015,8 @@ namespace HVOFSim.Presentation.UI
                         MkLabel(row, item.Name, 12, COL_TEXT);
                         MkLabel(row, item.Description, 11, COL_MUTED);
                         MkLabel(row, item.Quantity.ToString(), 12, COL_TEXT, TextAlignmentOptions.Center);
-                        MkLabel(row, $"€{item.UnitCostEur:N0}", 12, COL_TEXT, TextAlignmentOptions.Right);
-                        MkLabel(row, $"€{item.TotalCostEur:N0}", 12, COL_PRIMARY, TextAlignmentOptions.Right);
+                        MkLabel(row, $"€{item.UnitCostEur:N2}", 12, COL_TEXT, TextAlignmentOptions.Right);
+                        MkLabel(row, $"€{item.TotalCostEur:N2}", 12, COL_PRIMARY, TextAlignmentOptions.Right);
                     }
                     double catTotal = items.Sum(i => i.TotalCostEur);
                     var subRow = CreateRow(tableCard);
@@ -1024,7 +1024,7 @@ namespace HVOFSim.Presentation.UI
                     MkLabel(subRow, "", 12, COL_MUTED);
                     MkLabel(subRow, "", 12, COL_MUTED);
                     MkLabel(subRow, "", 12, COL_MUTED);
-                    MkLabel(subRow, $"<b>€{catTotal:N0}</b>", 12, COL_WARNING, TextAlignmentOptions.Right);
+                    MkLabel(subRow, $"<b>€{catTotal:N2}</b>", 12, COL_WARNING, TextAlignmentOptions.Right);
                     CreateDivider(tableCard);
                 }
                 // Grand total
@@ -1033,7 +1033,7 @@ namespace HVOFSim.Presentation.UI
                 MkLabel(totalRow, "", 12, COL_TEXT);
                 MkLabel(totalRow, "", 12, COL_TEXT);
                 MkLabel(totalRow, "", 12, COL_TEXT);
-                MkLabel(totalRow, $"<b>€{total:N0}</b>", 16, COL_SUCCESS, TextAlignmentOptions.Right);
+                MkLabel(totalRow, $"<b>€{total:N2}</b>", 16, COL_SUCCESS, TextAlignmentOptions.Right);
             }
             else
             {
