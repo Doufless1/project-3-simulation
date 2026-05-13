@@ -120,6 +120,10 @@ namespace HVOFSim.Presentation.Scene
             // After every sub-builder runs, rearrange/scale equipment so it
             // actually fits inside the real 2.76 x 6.02 m room polygon.
             ArrangeEquipmentForRoom();
+
+            // Fiber optic cable with wall-routed cable management
+            // (must run AFTER ArrangeEquipmentForRoom so world positions are final)
+            CreateFiberOpticCable();
         }
 
         // ── Equipment arrangement for the real room ──────────────────────
@@ -157,6 +161,7 @@ namespace HVOFSim.Presentation.Scene
             {
                 _laserUnitRoot.transform.localScale    = new Vector3(0.25f, 0.45f, 0.25f);
                 _laserUnitRoot.transform.localPosition = new Vector3(0f, 0f, backZ);
+                
             }
 
             if (_gasSystemRoot != null)
@@ -1209,13 +1214,33 @@ namespace HVOFSim.Presentation.Scene
                 label.GetComponent<Renderer>().material = _hazardMat;
             }
 
+            // Group all cabinet parts into a rotatable root
+            var cabinetRoot = new GameObject("LaserCabinetGroup");
+            cabinetRoot.transform.SetParent(parent, false);
+            cabinetRoot.transform.localPosition = chassis.transform.localPosition;
+            
+            var cabinetParts = new System.Collections.Generic.List<Transform>();
+            foreach (Transform child in parent)
+            {
+                if (child != cabinetRoot.transform) 
+                    cabinetParts.Add(child);
+            }
+            foreach (Transform part in cabinetParts)
+            {
+                part.SetParent(cabinetRoot.transform, true);
+            }
+
+            // WE ARE FLIPPING THE CABINET HERE:
+            cabinetRoot.transform.localRotation = Quaternion.Euler(0, -90f, 0);
+            cabinetRoot.transform.localPosition += new Vector3(0f, 0f, -3.0f);
+
             // — 6. Command Desk with PC & Monitor (next to cabinet) ——
             float DESK_TOP_Y = 1.70f;
             float DESK_T_thick = 0.08f;
             float DESK_W_size = 2.0f;
             float DESK_D_size = 4.0f;
             float DESK_X_pos = -1.5f;
-            float DESK_Z_pos = chassis.transform.localPosition.z - 3.5f;
+            float DESK_Z_pos = chassis.transform.localPosition.z - 10.5f;
 
             var matDeskTop = new Material(shader) { color = new Color(0.25f, 0.22f, 0.20f) };
             matDeskTop.SetFloat("_Metallic", 0.15f); matDeskTop.SetFloat("_Smoothness", 0.45f);
@@ -1247,7 +1272,7 @@ namespace HVOFSim.Presentation.Scene
             }
 
             // PC Tower (on the floor next to the desk)
-            float pcX = DESK_X_pos + 1.2f;
+            float pcX = DESK_X_pos;
             float pcH = 1.10f;
             var pcCase = GameObject.CreatePrimitive(PrimitiveType.Cube);
             pcCase.name = "PC_Tower";
@@ -1328,7 +1353,7 @@ namespace HVOFSim.Presentation.Scene
             keyboard.name = "Keyboard";
             keyboard.transform.SetParent(parent);
             keyboard.transform.localScale = new Vector3(1.40f, 0.05f, 0.50f);
-            keyboard.transform.localPosition = new Vector3(monX + 1.0f, DESK_TOP_Y + DESK_T_thick / 2f + 0.03f, DESK_Z_pos);
+            keyboard.transform.localPosition = new Vector3(monX + 0.65f, DESK_TOP_Y + DESK_T_thick / 2f + 0.03f, DESK_Z_pos);
             keyboard.transform.localRotation = Quaternion.Euler(0, 90f, 0);
             keyboard.GetComponent<Renderer>().material = matBlack;
 
@@ -1337,12 +1362,13 @@ namespace HVOFSim.Presentation.Scene
             mouse.name = "Mouse";
             mouse.transform.SetParent(parent);
             mouse.transform.localScale = new Vector3(0.22f, 0.04f, 0.35f);
-            mouse.transform.localPosition = new Vector3(monX + 0.8f, DESK_TOP_Y + DESK_T_thick / 2f + 0.025f, DESK_Z_pos + 1.0f);
+            mouse.transform.localPosition = new Vector3(monX + 0.65f, DESK_TOP_Y + DESK_T_thick / 2f + 0.025f, DESK_Z_pos + 1.0f);
             mouse.transform.localRotation = Quaternion.Euler(0, 90f, 0);
             mouse.GetComponent<Renderer>().material = matBlack;
 
             // — Processing head (replaces old gantry + cube head) —
             CreateProcessingHead(parent);
+
         }
 
         private void CreateCO2LaserUnit(Transform parent)
@@ -1352,6 +1378,7 @@ namespace HVOFSim.Presentation.Scene
             cab.transform.SetParent(parent);
             cab.transform.localScale = new Vector3(1.2f, 1.8f, 2.0f);
             cab.transform.position = new Vector3(-2.2f, 0.9f, 0.5f);
+            
             cab.GetComponent<Renderer>().material.color = new Color(0.1f, 0.1f, 0.15f);
 
             CreateGantryAndHead(parent, new Vector3(0.25f, 0.4f, 0.25f)); // Bulkier head
@@ -1575,6 +1602,234 @@ namespace HVOFSim.Presentation.Scene
 
             // LED indicator
             _laserActiveLED = CreateLEDIndicator(root, P(0, -0.55f, 0.50f), new Color(0.1f, 1f, 0.3f));
+        }
+
+        // ── Fiber Optic Delivery Cable (wall-routed cable management) ──
+        // IPG QBH-style armored fiber — €12,414 in the equipment catalog.
+        // Connects the laser source output port on the back of the cabinet
+        // to the collimator input on the processing head.
+        //
+        // Cable management: the fiber exits the cabinet rear, runs a short
+        // visible stub to a wall-mounted conduit plate, disappears through
+        // the wall, and re-emerges via a second conduit plate near the
+        // processing head.  Only the two short stubs are visible.
+        private void CreateFiberOpticCable()
+        {
+            var fiberRoot = new GameObject("FiberOpticCable");
+            fiberRoot.transform.SetParent(transform, false);
+
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+
+            // ── Materials ──
+            var matYellow = new Material(shader)
+            { color = new Color(0.95f, 0.75f, 0.05f) }; // industrial yellow sheath
+            matYellow.SetFloat("_Metallic", 0.15f);
+            matYellow.SetFloat("_Smoothness", 0.55f);
+
+            var matConnector = new Material(shader)
+            { color = new Color(0.72f, 0.72f, 0.75f) }; // stainless steel QBH
+            matConnector.SetFloat("_Metallic", 0.95f);
+            matConnector.SetFloat("_Smoothness", 0.75f);
+
+            var matConduit = new Material(shader)
+            { color = new Color(0.55f, 0.55f, 0.58f) }; // brushed aluminium conduit
+            matConduit.SetFloat("_Metallic", 0.85f);
+            matConduit.SetFloat("_Smoothness", 0.60f);
+
+            var matPlate = new Material(shader)
+            { color = new Color(0.88f, 0.88f, 0.90f) }; // wall plate
+            matPlate.SetFloat("_Metallic", 0.70f);
+            matPlate.SetFloat("_Smoothness", 0.50f);
+
+            var matCollar = new Material(shader)
+            { color = new Color(0.08f, 0.08f, 0.10f) }; // dark rubber collar
+            matCollar.SetFloat("_Metallic", 0.30f);
+            matCollar.SetFloat("_Smoothness", 0.40f);
+
+            // ── Room geometry constants ──
+            // Left wall is at X = -CenterDepthCm/200 = -0.635 m.
+            // Wall thickness = 0.08 m.  Inner face ≈ -0.595 m.
+            const float wallX = -0.595f;     // inner face of left wall
+            const float wallThick = 0.08f;
+
+            // ── 1. CABINET SIDE — fiber output port on the back of the IPG ──
+            // After ArrangeEquipmentForRoom the laser cabinet's world position
+            // is determined by _laserUnitRoot scale (0.25, 0.45, 0.25) and the
+            // internal cabinet group transform. We sample the actual world
+            // position of the cabinet at runtime.
+            //
+            // The cabinet group ("LaserCabinetGroup") lives under:
+            //   _laserUnitRoot / Laser_YtterbiumFiber / LaserCabinetGroup
+            // After the -90° rotation, the original back face (+Z in chassis
+            // local) points toward -X (toward the left wall). Perfect for
+            // routing the fiber into the wall.
+
+            // Cabinet world-space approximate center (derived from transforms):
+            //   localPos of chassis = (-1.5, ~2.04, -5)
+            //   cabinetGroup shifted by (0,0,-3) → (-1.5, 2.04, -8)
+            //   _laserUnitRoot scale (0.25, 0.45, 0.25) + pos (0, 0, 2.10)
+            //   world X = 0.25 * -1.5 = -0.375
+            //   world Y = 0.45 * 2.04 = 0.918
+            //   world Z = 2.10 + 0.25 * -8 = 0.10
+            // After -90° Y rotation of the group, the back face (+Z local)
+            // now faces -X direction.  The fiber port is on the back-top edge.
+            float cabinetWorldX = -0.375f;
+            float cabinetWorldY = 0.92f;
+            float cabinetWorldZ = 0.10f;
+
+            // Fiber exits from the back of the cabinet (toward -X / left wall)
+            Vector3 cabinetPort = new Vector3(
+                cabinetWorldX - 0.12f,  // just behind the cabinet back face
+                cabinetWorldY + 0.08f,  // near the top
+                cabinetWorldZ
+            );
+
+            // ── 2. WALL ENTRY — conduit plate on left wall at cabinet height ──
+            float wallEntryY = cabinetPort.y;
+            float wallEntryZ = cabinetPort.z;
+            Vector3 wallEntryInner = new Vector3(wallX, wallEntryY, wallEntryZ);
+
+            // ── 3. WALL EXIT — conduit plate on left wall near processing head ──
+            // Processing head (LaserGantry) world position:
+            //   local (0, 2.0, 0) * scale (0.25, 0.45, 0.25) + (0, 0, 2.10)
+            //   = (0, 0.90, 2.10)
+            // Top of gantry (TopMount at ~3.62 BU * 0.30):
+            //   world Y = 0.45 * (2.0 + 3.62 * 0.30) = 0.45 * 3.086 ≈ 1.39
+            float headWorldX = 0f;
+            float headWorldY = 1.39f;
+            float headWorldZ = 2.10f;
+
+            Vector3 headPort = new Vector3(
+                headWorldX - 0.06f,  // slightly toward the wall
+                headWorldY,
+                headWorldZ
+            );
+
+            // Wall exit is at processing head height, same Z
+            float wallExitY = headWorldY;
+            float wallExitZ = headWorldZ;
+            Vector3 wallExitInner = new Vector3(wallX, wallExitY, wallExitZ);
+
+            // ── CABINET-SIDE STUB: short cable from cabinet port → wall plate ──
+            {
+                var stubGO = new GameObject("FiberStub_Cabinet");
+                stubGO.transform.SetParent(fiberRoot.transform, false);
+                var lr = stubGO.AddComponent<LineRenderer>();
+                lr.useWorldSpace = true;
+                lr.positionCount = 4;
+                lr.SetPosition(0, cabinetPort);
+                // Small downward sag for natural drape
+                Vector3 mid1 = Vector3.Lerp(cabinetPort, wallEntryInner, 0.35f)
+                             + new Vector3(0, -0.03f, 0);
+                Vector3 mid2 = Vector3.Lerp(cabinetPort, wallEntryInner, 0.65f)
+                             + new Vector3(0, -0.02f, 0);
+                lr.SetPosition(1, mid1);
+                lr.SetPosition(2, mid2);
+                lr.SetPosition(3, wallEntryInner);
+                lr.startWidth = 0.018f;
+                lr.endWidth   = 0.018f;
+                lr.numCornerVertices = 4;
+                lr.numCapVertices = 3;
+                lr.material = matYellow;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                lr.receiveShadows = true;
+            }
+
+            // ── HEAD-SIDE STUB: short cable from wall plate → processing head ──
+            {
+                var stubGO = new GameObject("FiberStub_Head");
+                stubGO.transform.SetParent(fiberRoot.transform, false);
+                var lr = stubGO.AddComponent<LineRenderer>();
+                lr.useWorldSpace = true;
+                lr.positionCount = 4;
+                lr.SetPosition(0, wallExitInner);
+                Vector3 mid1 = Vector3.Lerp(wallExitInner, headPort, 0.30f)
+                             + new Vector3(0, -0.04f, 0);
+                Vector3 mid2 = Vector3.Lerp(wallExitInner, headPort, 0.70f)
+                             + new Vector3(0, -0.02f, 0);
+                lr.SetPosition(1, mid1);
+                lr.SetPosition(2, mid2);
+                lr.SetPosition(3, headPort);
+                lr.startWidth = 0.018f;
+                lr.endWidth   = 0.018f;
+                lr.numCornerVertices = 4;
+                lr.numCapVertices = 3;
+                lr.material = matYellow;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                lr.receiveShadows = true;
+            }
+
+            // ── WALL CONDUIT PLATE — cabinet side ──
+            CreateWallConduitPlate(fiberRoot.transform, wallEntryInner, matPlate, matConduit, matCollar);
+
+            // ── WALL CONDUIT PLATE — processing head side ──
+            CreateWallConduitPlate(fiberRoot.transform, wallExitInner, matPlate, matConduit, matCollar);
+
+            // ── QBH CONNECTOR — cabinet port ──
+            CreateQBHConnector(fiberRoot.transform, cabinetPort, matConnector, matCollar, facingDir: Vector3.left);
+
+            // ── QBH CONNECTOR — processing head port ──
+            CreateQBHConnector(fiberRoot.transform, headPort, matConnector, matCollar, facingDir: Vector3.right);
+        }
+
+        /// <summary>Creates a wall-mounted conduit plate with grommet hole.</summary>
+        private void CreateWallConduitPlate(Transform parent, Vector3 wallPos,
+            Material matPlate, Material matConduit, Material matCollar)
+        {
+            // Square wall plate (flush mount, 80×80 mm)
+            var plate = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            plate.name = "ConduitPlate";
+            plate.transform.SetParent(parent);
+            plate.transform.localScale = new Vector3(0.005f, 0.08f, 0.08f);
+            plate.transform.localPosition = wallPos + new Vector3(0.003f, 0, 0);
+            plate.GetComponent<Renderer>().material = matPlate;
+
+            // Conduit grommet (rubber ring around the cable hole)
+            var grommet = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            grommet.name = "ConduitGrommet";
+            grommet.transform.SetParent(parent);
+            grommet.transform.localScale = new Vector3(0.035f, 0.008f, 0.035f);
+            grommet.transform.localPosition = wallPos + new Vector3(0.008f, 0, 0);
+            grommet.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            grommet.GetComponent<Renderer>().material = matCollar;
+
+            // Small conduit collar (metal ring)
+            var collar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            collar.name = "ConduitCollar";
+            collar.transform.SetParent(parent);
+            collar.transform.localScale = new Vector3(0.028f, 0.012f, 0.028f);
+            collar.transform.localPosition = wallPos + new Vector3(0.015f, 0, 0);
+            collar.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            collar.GetComponent<Renderer>().material = matConduit;
+        }
+
+        /// <summary>Creates a QBH-style fiber optic connector at the given position.</summary>
+        private void CreateQBHConnector(Transform parent, Vector3 pos,
+            Material matConnector, Material matCollar, Vector3 facingDir)
+        {
+            // Connector body
+            var conn = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            conn.name = "QBH_Connector";
+            conn.transform.SetParent(parent);
+            conn.transform.localScale = new Vector3(0.028f, 0.02f, 0.028f);
+            conn.transform.localPosition = pos;
+            conn.GetComponent<Renderer>().material = matConnector;
+
+            // Collar ring
+            var collar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            collar.name = "QBH_Collar";
+            collar.transform.SetParent(parent);
+            collar.transform.localScale = new Vector3(0.035f, 0.008f, 0.035f);
+            collar.transform.localPosition = pos - facingDir * 0.015f;
+            collar.GetComponent<Renderer>().material = matCollar;
+
+            // Strain relief boot
+            var boot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            boot.name = "QBH_StrainRelief";
+            boot.transform.SetParent(parent);
+            boot.transform.localScale = new Vector3(0.022f, 0.015f, 0.022f);
+            boot.transform.localPosition = pos + facingDir * 0.018f;
+            boot.GetComponent<Renderer>().material = matCollar;
         }
 
         private void CreateGantryAndHead(Transform parent, Vector3 headScale)
