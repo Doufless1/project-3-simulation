@@ -59,6 +59,10 @@ namespace HVOFSim.Presentation.Scene
         private Bloom _bloomEffect;
         private Coroutine _swapRoutine;
 
+        // Initial local positions for runtime table animation
+        private Vector3 _tableBaseLocalPos;
+        private bool _tableBaseSet;
+
         // Enclosure door (interactive open/close)
         private Transform _enclosureDoorPivot;
         private bool _doorIsOpen;
@@ -260,20 +264,34 @@ namespace HVOFSim.Presentation.Scene
             }
         }
 
-        // Anchor the moving CNC platform under the laser head. The chamber and
-        // laser are positioned at world z = ChamberAnchorZ in ArrangeEquipmentForRoom;
-        // the runtime motion (X/Y within 0–300 mm) is added on top.
-        private const float ChamberAnchorZ = 2.10f;
-
         public void UpdateTablePosition(XYTable table)
         {
             if (Table == null || table == null) return;
-            // Map domain X/Y (0-300mm) to world space. Center of table (150,150)
-            // should sit directly under the laser head at (0, y, ChamberAnchorZ).
-            float xOffset = (float)((table.Position.XMm - 150.0) * 0.001 * Scale);
-            float zOffset = (float)((table.Position.YMm - 150.0) * 0.001 * Scale);
-            var target = new Vector3(-xOffset, Table.transform.position.y, ChamberAnchorZ - zOffset);
-            Table.transform.position = Vector3.Lerp(Table.transform.position, target, Time.deltaTime * 5f);
+
+            // Capture the initial local position on first call so we can
+            // offset from it each frame without drift.
+            if (!_tableBaseSet)
+            {
+                _tableBaseLocalPos = Table.transform.localPosition;
+                _tableBaseSet = true;
+            }
+
+            // Convert domain mm to local units inside XY_PositioningTable:
+            //   1 mm = 0.01 Blender units (BU);  1 BU = Scale (0.1) local units
+            //   ⇒ 1 mm = 0.001 local units.  300 mm travel = 0.30 local.
+            // Home position (0,0) = base position (no offset). The table moves
+            // from (0,0) up to (TravelX, TravelY) relative to the base.
+            const float MmToLocal = 0.001f;
+            float xLocal = (float)(table.Position.XMm) * MmToLocal;
+            float zLocal = (float)(table.Position.YMm) * MmToLocal;
+
+            // Domain X → local X, Domain Y → local Z (Blender Y → Unity Z)
+            var target = new Vector3(
+                _tableBaseLocalPos.x + xLocal,
+                _tableBaseLocalPos.y,
+                _tableBaseLocalPos.z + zLocal);
+            Table.transform.localPosition = Vector3.Lerp(
+                Table.transform.localPosition, target, Time.deltaTime * 8f);
 
             if (_tableHomedLED != null)
             {
@@ -780,7 +798,9 @@ namespace HVOFSim.Presentation.Scene
         {
             var xyRoot = new GameObject("XY_PositioningTable");
             xyRoot.transform.SetParent(parent);
-            xyRoot.transform.localPosition = new Vector3(0, baseZ * S, 0);
+            // Shift X by -XCX*S (-0.03) so the sample plate (at XCX=0.30 BU)
+            // ends up centred directly under the beam head at X=0.
+            xyRoot.transform.localPosition = new Vector3(-0.03f, baseZ * S, 0);
             xyRoot.transform.localScale = Vector3.one;
             Transform rt = xyRoot.transform;
 
@@ -983,8 +1003,10 @@ namespace HVOFSim.Presentation.Scene
             // Center crosshair (laser target)
             C("SampleTarget", new Vector3(XCX, YCY, SPZ+SH/2f+0.0005f), 0.06f, 0.001f, 'Z', mRed);
 
-            // Workpiece on sample plate
+            // Workpiece on sample plate — parented under SamplePlate so it
+            // moves together with the table during scan animations.
             Workpiece = B("Workpiece_50x50", new Vector3(XCX, YCY, SPZ+SH/2f+0.01f), new Vector3(0.50f, 0.50f, 0.02f), mStl);
+            Workpiece.transform.SetParent(Table.transform, true); // keep world position
 
             // Table-homed LED on X motor
             _tableHomedLED = CreateLEDIndicator(rt, new Vector3(NXX * S, (LXZ + NS * 0.55f) * S, 0), new Color(1f, 0.5f, 0f));
