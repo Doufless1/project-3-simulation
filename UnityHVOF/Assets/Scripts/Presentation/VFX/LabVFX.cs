@@ -99,10 +99,10 @@ namespace HVOFSim.Presentation.VFX
 
                 float pct = (float)(powerPct / 100.0);
                 
-                // Set targets for animation
-                _targetOuterWidth = 0.04f + pct * 0.08f;
-                _targetMidWidth = 0.015f + pct * 0.035f;
-                _targetCoreWidth = 0.005f + pct * 0.01f;
+                // Set targets for animation — thin beam for realistic fiber laser
+                _targetOuterWidth = 0.012f + pct * 0.02f;
+                _targetMidWidth = 0.005f + pct * 0.01f;
+                _targetCoreWidth = 0.002f + pct * 0.004f;
 
                 Vector3 impactPos = end;
                 _impactSparks.transform.position = impactPos;
@@ -139,18 +139,18 @@ namespace HVOFSim.Presentation.VFX
             {
                 // Add fast, chaotic noise to beam widths to simulate raw plasma energy
                 float time = Time.time;
-                float noiseOuter = Mathf.PerlinNoise(time * 35f, 0f) * 0.02f;
-                float noiseMid = Mathf.PerlinNoise(time * 45f, 100f) * 0.01f;
-                float noiseCore = Mathf.PerlinNoise(time * 55f, 200f) * 0.005f;
+                float noiseOuter = Mathf.PerlinNoise(time * 35f, 0f) * 0.006f;
+                float noiseMid = Mathf.PerlinNoise(time * 45f, 100f) * 0.003f;
+                float noiseCore = Mathf.PerlinNoise(time * 55f, 200f) * 0.0015f;
 
                 _beam.startWidth = _targetOuterWidth + noiseOuter;
-                _beam.endWidth = _beam.startWidth * 1.5f;
+                _beam.endWidth = _beam.startWidth * 1.15f;
 
                 _beamMid.startWidth = _targetMidWidth + noiseMid;
-                _beamMid.endWidth = _beamMid.startWidth * 1.3f;
+                _beamMid.endWidth = _beamMid.startWidth * 1.1f;
 
                 _beamCore.startWidth = _targetCoreWidth + noiseCore;
-                _beamCore.endWidth = _beamCore.startWidth * 1.1f;
+                _beamCore.endWidth = _beamCore.startWidth * 1.05f;
 
                 if (_impactLight != null)
                 {
