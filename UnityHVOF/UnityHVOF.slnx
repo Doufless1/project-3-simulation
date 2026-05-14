@@ -1,0 +1,10 @@
+﻿<Solution>
+  <Project Path="HVOFSim.Infrastructure.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="HVOFSim.Domain.csproj" />
+  <Project Path="HVOFSim.Tests.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="HVOFSim.Tests.PlayMode.csproj" />
+  <Project Path="HVOFSim.Presentation.csproj" />
+  <Project Path="HVOFSim.Application.csproj" />
+</Solution>
