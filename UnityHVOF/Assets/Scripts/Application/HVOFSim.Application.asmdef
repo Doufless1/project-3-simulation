@@ -1,0 +1,16 @@
+{
+    "name": "HVOFSim.Application",
+    "rootNamespace": "HVOFSim.Application",
+    "references": [
+        "HVOFSim.Domain"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
