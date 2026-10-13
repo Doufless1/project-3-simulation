@@ -4,12 +4,15 @@ Icon Generator Script.
 Generates a set of professional, consistent SVG icons ("NanoBanana" style: rounded, clean, solid/outline mix)
 for the Lab Control Dashboard.
 
-Output: assets/icons/*.svg
+Output: lab_control/presentation/assets/icons/*.svg (served by the Dash app)
 """
 
 import os
 
-ICONS_DIR = "assets/icons"
+ICONS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "lab_control", "presentation", "assets", "icons",
+)
 os.makedirs(ICONS_DIR, exist_ok=True)
 
 # Common SVG attributes for consistency

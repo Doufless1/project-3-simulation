@@ -1,4 +1,4 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,7 +18,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
-# IDEs & OS
+# ── IDEs, OS & local tooling ──────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
@@ -26,11 +26,15 @@ coverage.xml
 .DS_Store
 Thumbs.db
 desktop.ini
+.claude/settings.local.json
+.claude/worktrees/
 
-# Unity (UnityHVOF project)
+# ── Unity (UnityHVOF project) ─────────────────────────────────────────
 UnityHVOF/[Ll]ibrary/
 UnityHVOF/[Tt]emp/
 UnityHVOF/[Oo]bj/
+UnityHVOF/[Bb]uild/
+UnityHVOF/[Bb]uilds/
 UnityHVOF/[Ll]ogs/
 UnityHVOF/[Uu]ser[Ss]ettings/
 UnityHVOF/[Aa]sset[Ss]toreInProgress/
@@ -40,15 +44,14 @@ UnityHVOF/Assets/StreamingAssets/aa/*
 *.unitypackage
 *.sln
 
-# Project Generated Artifacts & Data
+# ── Generated simulation output & local data ─────────────────────────
 output/
 *.log
 discovered_materials.json
-discovery/discovered_materials.json
-assets/icons/*.svg
-
-# Local reports/plots
 material_comparison.png
 ultimate_fluence_map.png
 ultimate_melt_profile.png
+
+# PDFs are ignored except for the published research deliverables.
 *.pdf
+!docs/research/*.pdf
