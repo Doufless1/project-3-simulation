@@ -421,7 +421,7 @@ namespace HVOFSim.Presentation.UI
             var hlg = tabContainer.AddComponent<HorizontalLayoutGroup>();
             hlg.spacing = 1; hlg.childControlWidth = true; hlg.childForceExpandWidth = true;
 
-            string[] names = { "SET Setup", "X-Y Table", "Laser & Gas", "Safety", "Cost" };
+            string[] names = { "Setup", "X-Y Table", "Laser & Gas", "Safety", "Cost" };
             for (int i = 0; i < TAB_COUNT; i++)
             {
                 int idx = i;
