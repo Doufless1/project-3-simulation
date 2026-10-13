@@ -245,6 +245,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94710625fc27064459132ea432025541, type: 3}
   m_Name: 
   m_EditorClassIdentifier: HVOFSim.Presentation::HVOFSim.Presentation.CompositionRoot
+  _sceneBuilder: {fileID: 0}
+  _dashboard: {fileID: 0}
+  _laserVFX: {fileID: 0}
+  _gasVFX: {fileID: 0}
+  _heatmapRenderer: {fileID: 0}
+  _orbitCam: {fileID: 0}
+  _pendingError: 
 --- !u!4 &1364470592
 Transform:
   m_ObjectHideFlags: 0
