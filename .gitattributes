@@ -1,0 +1,16 @@
+# Binary assets — never diff or normalise line endings.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.mp4   binary
+*.ttf   binary
+*.otf   binary
+
+# Third-party Unity packages: keep them out of GitHub's language statistics
+# so the bar reflects the project's own C# and Python.
+"UnityHVOF/Assets/TextMesh Pro/**"            linguist-vendored
+UnityHVOF/Assets/MobileDependencyResolver/**  linguist-vendored
+
+# Research notes are documentation, not code.
+docs/**  linguist-documentation

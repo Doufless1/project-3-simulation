@@ -52,6 +52,6 @@ material_comparison.png
 ultimate_fluence_map.png
 ultimate_melt_profile.png
 
-# PDFs are ignored except for the published research deliverables.
+# Documents (reports, articles, posters) stay out of the repository.
 *.pdf
-!docs/research/*.pdf
+*.mp4

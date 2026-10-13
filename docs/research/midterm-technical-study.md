@@ -1,5 +1,7 @@
 # Studying and Designing a Laser Treatment Laboratory to Improve HVOF Coatings
 
+> **Status: midterm working document (superseded).** This is the literature review and first-pass design written at the project's midpoint. The final design differs — notably a 300 W IPG YLR-300-AC laser instead of 1 kW, and a custom GRBL X-Y table instead of commercial linear stages — and the final capital estimate is **€73.8k** (vs. the €87k–168k range below). For the final numbers see [Lab Design & Cost](../LAB_DESIGN_AND_COST.md).
+
 ## PART 1: Literature Review & Technical Foundation
 
 ---
